@@ -1,0 +1,134 @@
+<html>
+<head>
+  <!-- Testing framework: QUnit -->
+<!--   <script src='../../df/tests/lib/qunit.js'></script> -->
+<!--   <link rel="stylesheet" href='../../df/tests/lib/qunit.css' type="text/css" /> -->
+<script src="http://github.com/jquery/qunit/raw/master/qunit/qunit.js"></script>
+<link rel="stylesheet" href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" type="text/css">
+
+
+  <!-- Base libraries -->
+<!--   <script src='../../jquery/jquery.js'></script> -->
+  <script src="http://code.jquery.com/jquery-latest.min.js"></script>
+  <script src='../src/core.js'></script>
+  <script src='../src/md5.js'></script>
+  <script src='../src/base64.js'></script>
+
+  <script src='../plugins/mixin.support.js'></script>
+
+  <!-- Library component being tested -->
+  <script src='../plugins/strophe.dataform.js'></script>
+
+
+  <!-- Actual test code -->
+  <script>
+    $(document).ready(function(){
+        module("Mixins");
+        
+        var dataform = new Strophe.Connection().dataform;
+
+        test("dataform items mixin", function(){
+            ok(dataform, "dataform exists");
+            ok(dataform.mixins, "dataform mixins exist");
+            ok(dataform.mixins.DataForm, "DataForm exists");
+        });
+
+        test("serialization", function(){
+            var fields = [{type: 'hidden',
+                           'var': 'first-hidden',
+                           content: {
+                               value: "this is the value",
+                               required: true}
+                          },
+                          {type: 'text-single',
+                           label: 'Last Name',
+                           'var': 'muc#user_last',
+                           content: {
+                               required: true}
+                          },
+                          {type: 'list-multi',
+                           label: 'What features will the bot support?',
+                           'var': 'features',
+                           content: {
+                               options: {'Contests': 'contests',
+                                         'News': 'news',
+                                         'Polls': 'polls',
+                                         'Reminders': 'reminders'},
+                               value: ['news', 'search']}
+                          }];
+
+            var correct_form = "<x xmlns='jabber:x:data' type='form'><title>this is the title</title><instructions>these are the instructions</instructions><field type='hidden' var='FORM_TYPE'><value>jabber:bot</value></field><field type='hidden' var='first-hidden'><value>this is the value</value><required/></field><field type='text-single' label='Last Name' var='muc#user_last'><required/></field><field type='list-multi' label='What features will the bot support?' var='features'><value>news</value><value>search</value><option label='Contests'><value>contests</value></option><option label='News'><value>news</value></option><option label='Polls'><value>polls</value></option><option label='Reminders'><value>reminders</value></option></field></x>";
+
+            var form = dataform.createForm('form');
+            form.setTitle('this is the title');
+            form.setInstructions('these are the instructions');
+            form.setFormType('jabber:bot');
+            form.setFields(fields);
+
+            equals(Strophe.serialize(form), correct_form, "form serialization correct");
+
+            // f is returned with FORM_TYPE
+            var f = form.unserialize();
+            Strophe.log("unserialized form: ", f);
+
+            // disregard FORM_TYPE for comparison
+            for(var i=0; i < f.length; i++){
+                if(f[i]['var'] == "FORM_TYPE"){
+                    f.splice(i, 1);
+                } else {
+                    // also remove empty values
+                    if(!f[i].content.value || f[i].content.value.length == 0){
+                        delete f[i].content.value;
+                    }
+                }
+            }
+            same(f, fields, "unserialzation correct");
+
+            // check that serialization works well
+            var newform = dataform.createForm('form');
+            newform.setTitle(form.getTitle());
+            newform.setInstructions(form.getInstructions());
+            newform.setFormType(form.getFormType());
+            newform.setFields(f);
+
+            equals(Strophe.serialize(newform), correct_form, "form accessors correct");
+            
+        });
+
+        test("text-multi read/write", function(){
+            var fields = [
+                {type: 'text-multi',
+                 'var': 'notes',
+                 content: {
+                     value: "This\nis a\nmultiline\nstring"
+                 }
+                }
+            ];
+
+            var serialized = "<x xmlns='jabber:x:data' type='form'><field type='text-multi' var='notes'><value>This</value><value>is a</value><value>multiline</value><value>string</value></field></x>";
+
+            var form = dataform.createForm("form");
+            form.setFields(fields);
+            
+            equals(Strophe.serialize(form), serialized, "field serialized correctly");
+
+            var node = $(serialized)[0];
+            node = Strophe.Mixin.apply(node, dataform.mixins.DataForm);
+            
+            same(fields, node.unserialize(), "field unserialized correctly");
+        });
+
+    });
+  </script>
+</head>
+
+<body>
+
+  <h1 id="qunit-header">DataForm Static Tests</h1>
+  <h2 id="qunit-banner"></h2>
+  <h2 id="qunit-userAgent"></h2>
+  <ol id="qunit-tests"></ol>
+  
+  
+</body>
+</html>

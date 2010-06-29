@@ -1,0 +1,84 @@
+<html>
+<head>
+  <!-- Testing framework: QUnit -->
+<!--   <script src='../../df/tests/lib/qunit.js'></script> -->
+<!--   <link rel="stylesheet" href='../../df/tests/lib/qunit.css' type="text/css" /> -->
+<script src="http://github.com/jquery/qunit/raw/master/qunit/qunit.js"></script>
+<link rel="stylesheet" href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" type="text/css">
+
+
+  <!-- Base libraries -->
+<!--   <script src='../../jquery/jquery.js'></script> -->
+  <script src="http://code.jquery.com/jquery-latest.min.js"></script>
+  <script src='../src/core.js'></script>
+  <script src='../src/md5.js'></script>
+  <script src='../src/base64.js'></script>
+
+  <script src='../plugins/mixin.support.js'></script>
+
+  <!-- Library component being tested -->
+  <script src='../plugins/strophe.disco.js'></script>
+
+
+  <!-- Actual test code -->
+  <script>
+    $(document).ready(function(){
+        module("Mixins");
+        
+        test("disco items mixin", function(){
+            var conn = new Strophe.Connection();
+
+            var disco = conn.disco;
+            ok(disco, "disco exists");
+
+            var discoItems = disco.mixins.DiscoItems;
+            
+            ok(discoItems.getType, "getType() exists");
+        });
+
+        test("item toString low level", function(){
+            var disco = new Strophe.Connection().disco;
+            var di = disco.mixins.DiscoItems;
+            var item;
+            function Item(props){
+                this.toString = di.__item_toString;
+                Strophe.Mixin.apply(this, props);
+            }
+
+            equals(new Item({jid: "my jid"}).toString(), "jid: my jid");
+            equals(new Item({name: "my name"}).toString(), "name: my name");
+            equals(new Item({node: "my node", name: "some name"}).toString(), 
+                   "node: my node, name: some name");
+        });
+
+        test("item toString high level", function(){
+            var disco = new Strophe.Connection().disco;
+            var target = $msg().c("items")
+                .c("item", {jid: "jid1", node: "node1", name: "name1"}).up()
+                .c("item", {jid: "jid2", node: "node2", name: "name2"}).up();
+
+            
+            var result = Strophe.Mixin.apply(target.tree(), 
+                                             disco.mixins.DiscoItems);
+
+            var items = result.getItems();
+            equals(items.length, 2, "Found 2 items");
+            equals(items[0].toString(), "jid: jid1, node: node1, name: name1",
+                 "item toString correct: " + items[0].jid);
+            equals(items[1].toString(), "jid: jid2, node: node2, name: name2",
+                 "item toString correct: " + items[1].jid);
+        });
+    });
+  </script>
+</head>
+
+<body>
+
+  <h1 id="qunit-header">Disco Static Tests</h1>
+  <h2 id="qunit-banner"></h2>
+  <h2 id="qunit-userAgent"></h2>
+  <ol id="qunit-tests"></ol>
+  
+  
+</body>
+</html>

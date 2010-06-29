@@ -1,0 +1,184 @@
+<html>
+<head>
+  <!-- Testing framework: QUnit -->
+<!--   <script src='../../df/tests/lib/qunit.js'></script> -->
+<!--   <link rel="stylesheet" href='../../df/tests/lib/qunit.css' type="text/css" /> -->
+<script src="http://github.com/jquery/qunit/raw/master/qunit/qunit.js"></script>
+<link rel="stylesheet" href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" type="text/css">
+
+
+  <!-- Base libraries -->
+<!--   <script src='../../jquery/jquery.js'></script> -->
+  <script src="http://code.jquery.com/jquery-latest.min.js"></script>
+  <script src='../src/core.js'></script>
+  <script src='../src/md5.js'></script>
+  <script src='../src/base64.js'></script>
+
+  <!-- Library component being tested -->
+  <script src='../plugins/mixin.support.js'></script>
+
+
+  <!-- Actual test code -->
+  <script>
+    $(document).ready(function(){
+        module("Integrity");
+        
+        test("making sure default mixins exist", function(){
+            ok(Strophe.Mixin.Stanza, "Stanza");
+            ok(Strophe.Mixin.IQ, "IQ");
+            ok(Strophe.Mixin.Message, "Message");
+            ok(Strophe.Mixin.Presence, "Presence");
+        });
+
+        
+        module("Applying mixins");
+        
+        test("applying a single mixin", function(){
+            var mixin = {
+                one: 1,
+                two: 2
+            }
+            
+            var target = {};
+
+            Strophe.Mixin.apply(target, mixin);
+
+            equals(target.one, 1, "target contains first mixin content");
+            equals(target.two, 2, "target contains second mixin content");
+        });
+        
+        test("applying multiple mixins", function(){
+            var mixin1 = {one: 'one', two: 'two'};
+            var mixin2 = {three: 'three', four: 'four'};
+
+            var target = {};
+
+            Strophe.Mixin.apply(target, [mixin1, mixin2]);
+
+            equals(target.one, 'one', "target contains first mixin content");
+            equals(target.two, 'two', "target contains second mixin content");
+            equals(target.three, 'three', "target contains third mixin content");
+            equals(target.four, 'four', "target contains fourth mixin content");
+        });
+
+        test("multiple mixin arguments to apply()", function(){
+            var mixin1 = {one: 'one', two: 'two'};
+            var mixin2 = {three: 'three', four: 'four'};
+
+            var f = {five: 5};
+            var s = [{six: 6}, {seven: 7}];
+
+            var target = {};
+
+            // also throw in some undefined and null ones in there
+            Strophe.Mixin.apply(target, [mixin1, mixin2], undefined, f, null, s);
+
+            equals(target.one, 'one', "target contains first mixin content");
+            equals(target.two, 'two', "target contains second mixin content");
+            equals(target.three, 'three', "target contains third mixin content");
+            equals(target.four, 'four', "target contains fourth mixin content");
+            equals(target.five, 5, "target contains fifth mixin content");
+            equals(target.six, 6, "target contains sixth mixin content");
+            equals(target.seven, 7, "target contains seventh mixin content");
+        });
+
+        module("XML DOM Parser");
+        
+        test("find", function(){
+            var element = $build("a", {xmlns: "myns"})
+                .c("b", {xmlns: "bns"}).up()
+                .c("b", {xmlns: "otherns"}).up()
+                .c("c", {xmlns: "otherns"}).up()
+                .c("c", {xmlns: "cns"}).up()
+                .tree();
+            
+            var p = $sp(element);
+            var found;
+
+            // find all b elems
+            found = p.find("b");
+            equals(found.length, 2, "Two 'b' elements found");
+
+            // find all elems with "otherns"
+            found = p.find(null, "otherns");
+            equals(found.length, 2, "Two 'otherns'-namespaced elements found");
+
+            // find b elems with ns bns
+            found = p.find("b", "bns");
+            equals(found.length, 1, "One 'b' element with 'bns' found");
+
+            // find all elems
+            found = p.find();
+            equals(found.length, 4, "All 4 elements found");
+
+            // find none
+            found = p.find("bogus");
+            equals(found.length, 0, "No elements found");
+
+            // test chaining
+            found = p.find(null, "otherns").filter("b");
+            equals(found.length, 1, "Found 1 element via chaining");
+        });
+
+        test("filter", function(){
+            var element = $build("a", {xmlns: "myns"})
+                .c("b", {xmlns: "bns"}).up()
+                .c("b", {xmlns: "otherns"}).up()
+                .c("c", {xmlns: "otherns"}).up()
+                .c("c", {xmlns: "cns"}).up()
+                .tree();
+
+            // get all of the b and c elements
+            var p = $sp(element).find();
+            var found;
+
+            // find all b elems
+            found = p.filter("b");
+            equals(found.length, 2, "Two 'b' elements found");
+
+            // find all elems with "otherns"
+            found = p.filter(null, "otherns");
+            equals(found.length, 2, "Two 'otherns'-namespaced elements found");
+
+            // find b elems with ns bns
+            found = p.filter("b", "bns");
+            equals(found.length, 1, "One 'b' element with 'bns' found");
+
+            // find all elems
+            found = p.filter();
+            equals(found.length, 4, "All 4 elements found");
+
+            // find none
+            found = p.filter("bogus");
+            equals(found.length, 0, "No elements found");
+
+            // test chaining
+            found = p.filter(null, "otherns").filter("b");
+            equals(found.length, 1, "Found 1 element via chaining");
+        });
+
+        test("attr", function(){
+            var element = $build("a", {xmlns: "myns", attr: "attribute"})
+                .c("b", {xmlns: "bns"}).up()
+                .c("b", {xmlns: "otherns"}).up()
+                .c("c", {xmlns: "otherns"}).up()
+                .c("c", {xmlns: "cns"}).up()
+                .tree();
+
+            equals($sp(element).attr("xmlns").get(0), "myns", "xmlns attr found");
+            equals($sp(element).attr("attr").get(0), "attribute", "generic attr found");
+        });
+    });
+  </script>
+</head>
+
+<body>
+
+  <h1 id="qunit-header">Mixin Tests</h1>
+  <h2 id="qunit-banner"></h2>
+  <h2 id="qunit-userAgent"></h2>
+  <ol id="qunit-tests"></ol>
+  
+  
+</body>
+</html>

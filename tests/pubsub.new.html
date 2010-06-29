@@ -1,0 +1,49 @@
+<html>
+<head>
+  <!-- Testing framework: QUnit -->
+<!--   <script src='../../df/tests/lib/qunit.js'></script> -->
+<!--   <link rel="stylesheet" href='../../df/tests/lib/qunit.css' type="text/css" /> -->
+<script src="http://github.com/jquery/qunit/raw/master/qunit/qunit.js"></script>
+<link rel="stylesheet" href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" type="text/css">
+
+
+  <!-- Base libraries -->
+<!--   <script src='../../jquery/jquery.js'></script> -->
+  <script src="http://code.jquery.com/jquery-latest.min.js"></script>
+  <script src='../src/core.js'></script>
+  <script src='../src/md5.js'></script>
+  <script src='../src/base64.js'></script>
+
+  <script src='../plugins/mixin.support.js'></script>
+
+  <!-- Library component being tested -->
+  <script src='../plugins/pubsub.js'></script>
+
+
+  <!-- Actual test code -->
+  <script>
+    $(document).ready(function(){
+        module("Mixins");
+        
+        test("pubsub items mixin", function(){
+            var pubsub = new Strophe.Connection().pubsub;
+            ok(pubsub, "pubsub exists");
+            ok(pubsub.mixins, "pubsub mixins exist");
+            ok(pubsub.mixins.PubSub, "PubSub exists");
+            ok(pubsub.mixins.Notification, "Notification exists");
+        });
+        
+    });
+  </script>
+</head>
+
+<body>
+
+  <h1 id="qunit-header">PubSub Static Tests</h1>
+  <h2 id="qunit-banner"></h2>
+  <h2 id="qunit-userAgent"></h2>
+  <ol id="qunit-tests"></ol>
+  
+  
+</body>
+</html>

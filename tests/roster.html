@@ -1,0 +1,86 @@
+<html>
+<head>
+  <!-- Testing framework: QUnit -->
+<!--   <script src='../../df/tests/lib/qunit.js'></script> -->
+<!--   <link rel="stylesheet" href='../../df/tests/lib/qunit.css' type="text/css" /> -->
+<script src="http://github.com/jquery/qunit/raw/master/qunit/qunit.js"></script>
+<link rel="stylesheet" href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" type="text/css">
+
+
+  <!-- Base libraries -->
+<!--   <script src='../../jquery/jquery.js'></script> -->
+  <script src="http://code.jquery.com/jquery-latest.min.js"></script>
+  <script src='../src/core.js'></script>
+  <script src='../src/md5.js'></script>
+  <script src='../src/base64.js'></script>
+
+  <script src='../plugins/mixin.support.js'></script>
+
+  <!-- Library component being tested -->
+  <script src='../plugins/strophe.roster.js'></script>
+
+
+  <!-- Actual test code -->
+  <script>
+    $(document).ready(function(){
+        var roster = new Strophe.Connection().roster;
+
+        module("Mixins");
+        
+        test("roster items mixin", function(){
+            ok(roster, "roster exists");
+
+            var rosterMixin = roster.mixins.Roster;
+
+            ok(rosterMixin, "Roster mixin exists");
+            ok(rosterMixin.getType, "getType() exists");
+        });
+
+        module("Parsing");
+
+        test("roster response", function(){
+            expect(3);
+
+            // example taken from RFC 3921 (and group removed from Romeo, 
+            //   and added group to Benvolio):
+            var rosterElem = $("<iq to='juliet@example.com/balcony' type='result' id='roster_1'><query xmlns='jabber:iq:roster'><item jid='romeo@example.net' name='Romeo' subscription='both'></item><item jid='mercutio@example.org' name='Mercutio' subscription='from'><group>Friends</group></item><item jid='benvolio@example.org' name='Benvolio' subscription='both'><group>Friends</group><group>Enemies</group></item></query></iq>").get(0);
+
+            var handler = roster.requestRoster(function(response){
+                var items = response.getItems();
+                
+                same(items[0], {jid: "romeo@example.net",
+                                name: "Romeo",
+                                subscription: "both",
+                                groups: []
+                               });
+
+                same(items[1], {jid: "mercutio@example.org",
+                                name: "Mercutio",
+                                subscription: "from",
+                                groups: ["Friends"]
+                               });
+
+                same(items[2], {jid: "benvolio@example.org",
+                                name: "Benvolio",
+                                subscription: "both",
+                                groups: ["Friends", "Enemies"]
+                               });
+            });
+
+            // trigger handler
+            handler.run(rosterElem);
+        });
+    });
+  </script>
+</head>
+
+<body>
+
+  <h1 id="qunit-header">Roster Static Tests</h1>
+  <h2 id="qunit-banner"></h2>
+  <h2 id="qunit-userAgent"></h2>
+  <ol id="qunit-tests"></ol>
+  
+  
+</body>
+</html>
