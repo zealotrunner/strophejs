@@ -36,7 +36,7 @@ Strophe.addConnectionPlugin('muc', {
      *   (String) service - The name of the muc service.
      *   (String) room -  The name of the muc room.
      *   (String) nick -  The nick to use.
-     *   (Dictionary) history -  (Optional) A history request dict. e.g.: {history: 10}.
+     *   (Dictionary) history -  (Optional) A history request dict. e.g.: {seconds: 10}.
      *   (Function) callback - (Optional) Called when the response arrives. 
      *          No special processing on the response is performed.
      * 

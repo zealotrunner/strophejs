@@ -24,15 +24,210 @@
   <script>
     $(document).ready(function(){
         module("Mixins");
+
+        var pubsub = new Strophe.Connection().pubsub;
         
         test("pubsub items mixin", function(){
-            var pubsub = new Strophe.Connection().pubsub;
             ok(pubsub, "pubsub exists");
             ok(pubsub.mixins, "pubsub mixins exist");
             ok(pubsub.mixins.PubSub, "PubSub exists");
             ok(pubsub.mixins.Notification, "Notification exists");
         });
+
+        module("Notification Mixin");
+
+        test("getItems", function(){
+            var notification =
+                $("<message to='user@domain.com' from='pubsub.domain.com'>"
+                  + "  <event xmlns='http://jabber.org/protocol/pubsub#event'>"
+                  + "    <items node='pubsub_node'>"
+                  + "      <item id='some_id' publisher='publisher@domain.com'"
+                  + "                         timestamp='2010-07-13T19:18:16Z'>"
+                  + "        <payload xmlns='customns'>"
+                  + "          <item>payload item element</item>"
+                  + "          <name>some name tag</name>"
+                  + "        </payload>"
+                  + "      </item>"
+                  + "      <item id='other_id'>"
+                  + "        <payload xmlns='customns'>"
+                  + "          <item>payload item element</item>"
+                  + "          <name>some name tag</name>"
+                  + "        </payload>"
+                  + "      </item>"
+                  + "    </items>"
+                  + "  </event>"
+                  + "</message>").get(0);
+
+            notification = Strophe.Mixin.apply(notification,
+                                               pubsub.mixins.Notification);
+
+            var items = notification.getItems();
+
+            equals(notification.getNode(), "pubsub_node", "node name correct");
+            equals(notification.getService(), "pubsub.domain.com", "service name correct");
+
+            equals(items.length, 2, "two items found");
+            equals(items[0].id, "some_id", "first item id correct");
+            equals(items[0].publisher, "publisher@domain.com", 
+                   "first item publisher correct");
+            equals(items[0].timestamp, "2010-07-13T19:18:16Z", 
+                   "first item timestamp correct");
+            ok(items[0].payload, "first item payload exists");
+
+            equals(items[1].id, "other_id", "second item id correct");
+            equals(items[1].id, "other_id", "second item id correct");
+        });
+
+
+        test("getRetractions", function(){
+            var notification =
+                $("<message to='user@domain.com' from='pubsub.domain.com'>"
+                  + "  <event xmlns='http://jabber.org/protocol/pubsub#event'>"
+                  + "    <items node='pubsub_node'>"
+                  + "      <retract id='some_id'/>"
+                  + "      <retract id='other_id'/>"
+                  + "    </items>"
+                  + "  </event>"
+                  + "</message>").get(0);
+
+            notification = Strophe.Mixin.apply(notification,
+                                               pubsub.mixins.Notification);
+            var items = notification.getRetractions();
+
+            equals(notification.getNode(), "pubsub_node", "node name correct");
+
+            equals(items.length, 2, "two items found");
+            equals(items[0].id, "some_id", "first retract id correct");
+            equals(items[1].id, "other_id", "second retract id correct");
+        });
+
+        test("getPurge", function(){
+            var notification = 
+                $("<message from='pubsub.shakespeare.lit' to='francisco@denmark.lit' id='foo'>"
+                  + "  <event xmlns='http://jabber.org/protocol/pubsub#event'>"
+                  + "    <purge node='princely_musings'/>"
+                  + "  </event>"
+                  + "</message>").get(0);
+
+            var notification = Strophe.Mixin.apply(notification,
+                                                   pubsub.mixins.Notification);
+
+            var purge = notification.getPurge();
+            
+            equals(notification.getNode(), "princely_musings", "node name correct");
+            equals(purge.length, 1, "a purge notification found");
+        });
+
+
+        module("PubSub Mixin");
+
+        test("Generic Pubsub IQ responses", function(){
+            var publish_result = 
+                $("<iq type='result'"
+                  + "    from='pubsub.shakespeare.lit'"
+                  + "    to='hamlet@denmark.lit/blogbot'"
+                  + "    id='publish1'>"
+                  + "  <pubsub xmlns='http://jabber.org/protocol/pubsub'>"
+                  + "    <publish node='princely_musings'>"
+                  + "      <item id='ae890ac52d0df67ed7cfdf51b644e901'/>"
+                  + "    </publish>"
+                  + "  </pubsub>"
+                  + "</iq>").get(0);
+            
+            publish_result = Strophe.Mixin.apply(publish_result,
+                                                 pubsub.mixins.PubSub);
+
+            var items = publish_result.getItems();
+
+            equals(publish_result.getNode(), "princely_musings", "node name correct");
+            equals(items.length, 1, "a pubsub items  found");
+            equals(items[0].id, "ae890ac52d0df67ed7cfdf51b644e901", "published itemid found");
+            equals(publish_result.getService(), "pubsub.shakespeare.lit");
+        });
+
+        test("Subscription Response", function(){
+            var resp = 
+                $("<iq type='result'"
+                  + "    from='pubsub.shakespeare.lit'"
+                  + "    to='francisco@denmark.lit/barracks'"
+                  + "    id='sub1'>"
+                  + "  <pubsub xmlns='http://jabber.org/protocol/pubsub'>"
+                  + "    <subscription"
+                  + "        node='princely_musings'"
+                  + "        jid='francisco@denmark.lit'"
+                  + "        subid='ba49252aaa4f5d320c24d3766f0bdcade78c78d3'"
+                  + "        subscription='subscribed'/>"
+                  + "  </pubsub>"
+                  + "</iq>").get(0);
+
+            resp = Strophe.Mixin.apply(resp, pubsub.mixins.PubSub);
+            
+            equals(resp.getSubscriptions().length, 1);
+            equals(resp.getSubscriptions()[0].jid, "francisco@denmark.lit");
+        });
+
+        test("Subscription Management", function(){
+            var subs = 
+                $("<iq type='result'"
+                  + "    from='pubsub.shakespeare.lit'"
+                  + "    to='hamlet@denmark.lit/elsinore'"
+                  + "    id='subman1'>"
+                  + "  <pubsub xmlns='http://jabber.org/protocol/pubsub#owner'>"
+                  + "    <subscriptions node='princely_musings'>"
+                  + "      <subscription jid='hamlet@denmark.lit' subscription='subscribed'/>"
+                  + "      <subscription jid='polonius@denmark.lit' subscription='unconfigured'/>"
+                  + "      <subscription jid='bernardo@denmark.lit' subscription='subscribed' subid='123-abc'/>"
+                  + "      <subscription jid='bernardo@denmark.lit' subscription='subscribed'/>"
+                  + "    </subscriptions>"
+                  + "  </pubsub>"
+                  + "</iq>").get(0);
+
+            subs = Strophe.Mixin.apply(subs, pubsub.mixins.PubSub);
+            
+            var subscriptions = subs.getSubscriptions();
+
+            equals(subs.getNode(), "princely_musings");
+            equals(subscriptions.length, 4, "4 subs found");
+            equals(subscriptions[0].jid, "hamlet@denmark.lit");
+            equals(subscriptions[0].subscription, "subscribed");
+            equals(subscriptions[2].subid, "123-abc");
+        });
         
+        test("Get Items reponse", function(){
+            var result = 
+                $("<iq type='result'"
+                  + "    from='pubsub.shakespeare.lit'"
+                  + "    to='hamlet@denmark.lit/elsinore'"
+                  + "    id='items1'>"
+                  + "  <pubsub xmlns='http://jabber.org/protocol/pubsub'>"
+                  + "    <items node='princely_musings'>"
+                  + "      <item id='some_id' publisher='publisher@domain.com'"
+                  + "                         timestamp='2010-07-13T19:18:16Z'>"
+                  + "        <payload xmlns='customns'>"
+                  + "          <item>payload item element</item>"
+                  + "          <name>some name tag</name>"
+                  + "        </payload>"
+                  + "      </item>"
+                  + "      <item id='other_id'>"
+                  + "        <payload xmlns='customns'>"
+                  + "          <item>payload item element</item>"
+                  + "          <name>some name tag</name>"
+                  + "        </payload>"
+                  + "      </item>"
+                  + "    </items>"                  
+                  + "  </pubsub>"
+                  + "</iq>").get(0);
+
+            result = Strophe.Mixin.apply(result, pubsub.mixins.PubSub);
+
+            var items = result.getItems();
+
+            equals(result.getNode(), "princely_musings");
+            equals(items.length, 2);
+            equals(items[0].id, 'some_id');
+            ok(items[0].payload);
+            equals(items[1].id, 'other_id');
+        });
     });
   </script>
 </head>

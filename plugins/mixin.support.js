@@ -92,7 +92,7 @@ var Stanza = {
     
      */        
     getName: function(){
-        this.nodeName;
+        return this.tagName;
     },
 
     
@@ -122,22 +122,12 @@ var Stanza = {
 
     
     getExtensionsByNS: function(namespaceURI) {
-        var extensionsByNS = new Array(); 
-        var x = this.getExtensions();
-        for(var i=0; i < x.length; i++){
-            if(x[i].getAttribute('xmlns') == namespaceURI){
-                extensionsByNS.push(x[i]);
-            }
-        }
-        return extensionsByNS;
+        namespaceURI = namespaceURI || "";
+        return new Strophe.Parser(this).find(namespaceURI + "|x");
     },
     
     getExtensions: function() {
-        var extensionElems = this.getElementsByTagName("x");
-        if(extensionElems == undefined || extensionElems == null){
-            return [];
-        }
-        return extensionElems;
+        return new Strophe.Parser(this).find("x");
     },
 
 
@@ -156,13 +146,10 @@ var Stanza = {
     Returns: (Object) - The object representing an error
     */
     getError: function() {
-        var errorElem = this.getElementsByTagName("error");
-        if(errorElem == undefined || 
-           errorElem == null || 
-           errorElem.length == 0){
+        var errorElem = new Strophe.Parser(this).find("error").get(0);
+        if(!errorElem){
             return null;
         }
-        errorElem = errorElem[0];
 
         var error = {
             code: errorElem.getAttribute("code"),
@@ -176,10 +163,7 @@ var Stanza = {
             error.condition_detail = errorElem.childNodes[1].nodeName;
         }
 
-        var texts = errorElem.getElementsByTagName("text");
-        if( texts.length > 0 ){
-            error.text = Strophe.getText(texts[0]);
-        }
+        error.text = new Strophe.Parser(errorElem).find("text").text();
 
         return error;
     },
@@ -216,29 +200,32 @@ var Message = Mixin.apply({
          
      */
     getBody: function() {
-        var elems = this.getElementsByTagName("body");
-        if( elems.length > 0 ){
-            return elems.item(0);
-        }
-        return null;
+        return new Strophe.Parser(this).find("body").get(0);
     },
 
 
-   getDelay: function() {
-	   var delayElem = this.getElementsByTagName('delay');
-	   if (!isNull(delayElem.length) && delayElem.length > 0){
-	   	return delayElem[0].getAttribute('stamp');
-	   }
-	   return undefined;
-   },
-   
-   getBodyText: function(){
-	   var bodyElem = this.getElementsByTagName('body');
-	   if (!isNull(bodyElem.length) && bodyElem.length > 0){
-	   	return bodyElem[0].textContent;
-	   }
-	return false;
-   }
+    /***
+     * Function getDelay
+     * Retreives the legacy specification's 'stamp' attribute from the
+     * 'delay' element
+     * 
+     * Returns null if not found.
+     */
+    getDelay: function() {
+        var delayElem = this.getElementsByTagName('delay');
+        if (delayElem.length && delayElem.length > 0){
+            return delayElem[0].getAttribute('stamp');
+        }
+        return undefined;
+    },
+    
+    getBodyText: function(){
+        var bodyElem = this.getElementsByTagName('body');
+        if (bodyElem.length && bodyElem.length > 0){
+            return bodyElem[0].textContent;
+        }
+        return false;
+    }
 }, Stanza);
 
 
@@ -251,9 +238,9 @@ var IQ = Mixin.apply({
      Returns: (DOMNode) - The XML node of the query element
          
      */
-    getQuery: function() {
-        var elem = this.getElementsByTagName("query").item(0);
-        return elem;
+    getQuery: function(ns) {
+        ns = ns || "";
+        return new Strophe.Parser(this).find(ns + "|query").get(0);
     },
 
 
@@ -266,8 +253,7 @@ var IQ = Mixin.apply({
          
      */
     getQueryNS: function() {
-        var query = this.getQuery();
-        return query ? query.getAttribute("xmlns") : "";
+        return new Strophe.Parser(this).find("query").attr("xmlns").get(0) || "";
     }
 }, Stanza);
 
@@ -281,15 +267,19 @@ var Presence = Mixin.apply({
      * Get contents of all status elements as an array
      */
     getStatuses: function(){
-      var statuses = new Array();
-      Strophe.forEachChild(this, 'status', function(child) {
-         statuses.push(Strophe.getText(child));
-      });
-      return statuses;
+        var statuses = new Array();
+        Strophe.forEachChild(this, 'status', function(child) {
+            statuses.push(Strophe.getText(child));
+        });
+        return statuses;
+    },
+    
+    getShow: function(){
+        return new Strophe.Parser(this).find("show").text();
     },
 
-    getShow: function(){
-        
+    getPriority: function(){
+        return new Strophe.Parser(this).find("priority").text();
     }
 }, Stanza);
 
@@ -326,6 +316,12 @@ var isArray = function(obj){
     }
 };
 
+var trimArray = function(array){
+    for(var i = 0; i < array.length; i++){
+        array[i] = array[i].replace(/^\s+|\s+$/g,"");
+    }
+    return array;
+}
 
 var Parser = function(data){
     if(this == window){
@@ -333,6 +329,7 @@ var Parser = function(data){
         return new Parser(data);
     }
 
+    data = data || [];
     data = isArray(data) ? data : [data];
     for(var i = 0; i < data.length; i++){
         this.push(data[i]);
@@ -362,34 +359,102 @@ var parser_api = {
         return this;
     },
 
+    /**
+     * Allows two SP instances to be conatinated (like an array).
+     * Does not modify either instance, but returns new SP instance.
+     */
+    concat: function(other){
+        var result = new Parser();
+        this.each(function(item){
+            console.log("item 1", item);
+            result.push(item);
+        });
+
+        other.each(function(item){
+            console.log("item 2", item);
+            result.push(item);
+        });
+
+        return result;
+    },
+
 
     /**
      * Function: find
      *  
      * Finds all children of the elements that match
-     * the given node name and namespace parameters.
+     * the given selector.
      * 
      * Parameters:
-     *  (String)     nodeName - (Optional) The node name to match.
-     *  (String)     ns       - (Optional) The xmlns to match.
+     *  (String)     selector - (Optional) The selector to match. 
+     *                          Supported selectors:
+     *                          E > F (F is a direct child of E)
+     *                          E, F (E or F named element)
+     *                          ns|E (elements with name E in namespace ns - namespace is determined by E having an xmlns attribute - from CSS3)
+     *                          * (matches all element names)
+     *                          
+     *                          Selectors can be combined:
+     *                          "http://jabber.org/protocol/pubsub|pubsub, event > items > item"
+     * 
      *
      * Returns:
      *    A Parser instance (could be empty).
      *
      */
-    find: function(nodeName, ns){
+    find: function(selector){
         var elements = [];
-        if(!ns && ns === undefined){
-            ns = null;
+
+        // support the '>' CSS selector
+        var hierarchy = [selector];
+
+        if(selector){
+            hierarchy = trimArray(selector.split(">"));
         }
 
         this.each(function(e){
             if(e !== undefined && e !== null){
-                Strophe.forEachChild(e, nodeName, function (elem) {
-                    if (ns == null || elem.getAttribute("xmlns") == ns ) {
-                        elements.push(elem);
+                var nodeName = hierarchy[0];
+                var ns = null;
+
+                // support the ',' CSS OR selector
+                var nodes = [nodeName];
+                if(nodeName){
+                    nodes = trimArray(nodeName.split(","));
+                }
+
+                for(var j = 0; j < nodes.length; j++){
+                    // support namespace search
+                    var node = trimArray((nodes[j] || "").split("|"));
+                    if(node.length == 2){ // ns specified
+                        nodeName = node[1];
+                        ns = node[0];
+                    } else {
+                        nodeName = node[0];
+                        ns = null;
                     }
-                });
+
+                    // allow "" and "*" to mean "match any element name"
+                    if(nodeName === "" || nodeName === "*"){
+                        nodeName = null;
+                    }
+                    // allow empty ns to mean no ns specified
+                    ns = ns == ""? null : ns;
+                    
+                    Strophe.forEachChild(e, nodeName, function (elem) {
+                        if (ns == null || elem.getAttribute("xmlns") == ns ) {
+                            
+                            // look ahead
+                            if(hierarchy[1]){
+                                Parser(elem).find(hierarchy.slice(1).join(">")).each(function(elem){
+                                    elements.push(elem);
+                                });
+                            }
+                            else {
+                                elements.push(elem);
+                            }
+                        }
+                    });
+                }
             }
         });
         
@@ -457,6 +522,25 @@ var parser_api = {
         });
 
         return new Parser(result);
+    },
+
+    /**
+     * Function: text
+     *  
+     * Gets the text values of all of the elements concatinated as a single string.
+     * Note that this is not recursive.
+     *
+     * Returns:
+     *    A string, empty if no text elements are found.
+     */
+    text: function(){
+        var ret = "";
+
+        this.each(function(elem){
+            ret += (Strophe.getText(elem) || "");
+        });
+        
+        return ret; 
     }
 }
 

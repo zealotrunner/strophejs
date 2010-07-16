@@ -69,7 +69,7 @@
 
             // f is returned with FORM_TYPE
             var f = form.unserialize();
-            Strophe.log("unserialized form: ", f);
+            //console.log("unserialized form: ", f);
 
             // disregard FORM_TYPE for comparison
             for(var i=0; i < f.length; i++){
@@ -118,6 +118,66 @@
             same(fields, node.unserialize(), "field unserialized correctly");
         });
 
+        test("items", function(){
+            var serialized = "<x xmlns='jabber:x:data' type='form'><reported><field type='text-single' label='field 1 description' var='field1'/><field type='text-single' label='field 2 description' var='field2'/></reported><item><field var='field1'><value>field1-value 1</value></field><field var='field2'><value>field2-value 1</value></field></item><item><field var='field1'><value>field1-value 2</value></field><field var='field2'><value>field2-value 2</value></field></item></x>";
+                
+            
+            var x = $(serialized).get(0);
+            var form = Strophe.Mixin.apply(x, dataform.mixins.DataForm);
+
+            // test items getting
+            var items = form.getItems();
+            equals(items.length, 2, "all items found");
+            equals(items[0][0]['var'], "field1");
+            equals(items[0][0].content.value, "field1-value 1");
+            equals(items[0][1]['var'], "field2");
+            equals(items[0][1].content.value, "field2-value 1");
+            equals(items[1][0]['var'], "field1");
+            equals(items[1][0].content.value, "field1-value 2");
+            equals(items[1][1]['var'], "field2");
+            equals(items[1][1].content.value, "field2-value 2");
+
+            //console.log("items: ", items);
+            
+            // test items setting
+            form.setItems(); // clear items
+            equals(form.getItems().length, 0, "all items cleared");
+            
+            form.setItems(items);
+            equals(form.getItems().length, 2, "all items readded");
+            same(form.getItems(), items, "added items are correct");
+
+            // test reported getting
+            var reported = form.getReported();
+            equals(reported.length, 2, "all reported found");
+            equals(reported[0]['var'], "field1");
+            equals(reported[0].label, "field 1 description");
+            equals(reported[0].type, "text-single");
+            equals(reported[1]['var'], "field2");
+            equals(reported[1].label, "field 2 description");
+            equals(reported[1].type, "text-single");
+
+            // test reported setting
+            form.setReported(); // clear reported
+            equals(form.getReported().length, 0, "all 'reported' cleared");
+            //console.log("reported:", reported);
+            
+            form.setReported(reported);
+            equals(form.getReported().length, 2, "all 'reported' readded");
+            same(form.getReported(), reported, "added 'reported' are correct");
+
+            // test serialization
+            var newForm = dataform.createForm("form");
+            newForm.setItems(items);
+            equals(newForm.getItems().length, 2, "all items to new form");
+            same(newForm.getItems(), items, "items are the correct in new form");
+
+            newForm.setReported(reported);
+            equals(form.getReported().length, 2, "all 'reported' added to new form");
+            same(form.getReported(), reported, "all 'reported' are correct in new form");
+            
+            equals(Strophe.serialize(newForm), serialized, "form XML is correct");
+        });
     });
   </script>
 </head>

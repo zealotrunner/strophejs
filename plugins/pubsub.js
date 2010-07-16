@@ -4,8 +4,9 @@
 
   Original version Copyright 2008, Stanziq  Inc.
 */
+(function($sp, callback){
 
-Strophe.addConnectionPlugin('pubsub', {
+var pubsub = {
 /*
   Extend connection object to have plugin name 'pubsub'.  
 */
@@ -93,7 +94,7 @@ Strophe.addConnectionPlugin('pubsub', {
         if( call_back ){
             var pubsub = this;
             var callback_wrapper = function(response){
-                Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
                 call_back(response);
             }
             
@@ -137,7 +138,7 @@ Strophe.addConnectionPlugin('pubsub', {
         if( call_back ){
             var pubsub = this;
             var callback_wrapper = function(response){
-                Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
                 call_back(response);
             }
             
@@ -202,7 +203,7 @@ Strophe.addConnectionPlugin('pubsub', {
         if( call_back ){
             var pubsub = this;
             var callback_wrapper = function(response){
-                Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
                 
                 if( event_cb ){
                     // add notification listener on successful subscription
@@ -259,7 +260,7 @@ Strophe.addConnectionPlugin('pubsub', {
         if( call_back ){
             var pubsub = this;
             var callback_wrapper = function(response){
-                Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
                 call_back(response);
             }
 
@@ -312,19 +313,17 @@ Strophe.addConnectionPlugin('pubsub', {
         if( call_back ){
             var pubsub = this;
             var callback_wrapper = function(response){
-                Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
 
                 // if the dataform plugin is loaded, use it
                 var dataform = pubsub._conn.dataform;
                 if(dataform){
-                    Strophe.Mixin.apply(response, {
+                    response = Strophe.Mixin.apply(response, {
                         getForm: function(){
-                            var xElems = this.getElementsByTagName("x");
-                            if (xElems && xElems.length > 0){
-                                var form = xElems[0];
-                                Strophe.Mixin.apply(form,
-                                                    dataform.mixins.DataForm);
-                                return form;
+                            var form = $sp(this).find("pubsub > options > x").get(0);
+                            if(form){
+                                return Strophe.Mixin.apply(form,
+                                                           dataform.mixins.DataForm);
                             }
                         }
                     });
@@ -397,7 +396,7 @@ Strophe.addConnectionPlugin('pubsub', {
         if( call_back ){
             var pubsub = this;
             var callback_wrapper = function(response){
-                Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
                 call_back(response);
             }
 
@@ -446,7 +445,7 @@ Strophe.addConnectionPlugin('pubsub', {
         if( call_back ){
             var pubsub = this;
             var callback_wrapper = function(response){
-                Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
                 call_back(response);
             }
 
@@ -541,9 +540,8 @@ Strophe.addConnectionPlugin('pubsub', {
             var callback_wrapper = function(response){
                 // the response looks like a notification body
                 // in an IQ stanza
-                Strophe.Mixin.apply(response,
-                                    pubsub.mixins.Notification,
-                                    pubsub.mixins.PubSub);
+                response = Strophe.Mixin.apply(response,
+                                               pubsub.mixins.PubSub);
                 call_back(response);
             }
 
@@ -586,7 +584,7 @@ Strophe.addConnectionPlugin('pubsub', {
         if( call_back ){
             var pubsub = this;
             var callback_wrapper = function(response){
-                Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
                 call_back(response);
             }
 
@@ -648,7 +646,7 @@ Strophe.addConnectionPlugin('pubsub', {
 
                             if( !node || event_elem.getAttribute("node") == node ){
                                 handler_found = true;
-                                Strophe.Mixin.apply(elem, pubsub.mixins.Notification);
+                                elem = Strophe.Mixin.apply(elem, pubsub.mixins.Notification);
                                 handler_ret = call_back(elem);
                             }
                         }
@@ -712,7 +710,7 @@ Strophe.addConnectionPlugin('pubsub', {
             if( call_back ){
                 var pubsub = this._conn.pubsub;
                 var callback_wrapper = function(response){
-                    Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                    response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
                     call_back(response);
                 }
                 
@@ -753,19 +751,17 @@ Strophe.addConnectionPlugin('pubsub', {
             if( call_back ){
                 var pubsub = this._conn.pubsub;
                 var callback_wrapper = function(response){
-                    Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                    response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
 
                     // if the dataform plugin is loaded, use it
                     var dataform = pubsub._conn.dataform;
                     if(dataform){
-                        Strophe.Mixin.apply(response, {
+                        response = Strophe.Mixin.apply(response, {
                             getForm: function(){
-                                var xElems = this.getElementsByTagName("x");
-                                if (xElems && xElems.length > 0){
-                                    var form = xElems[0];
-                                    Strophe.Mixin.apply(form,
-                                                        dataform.mixins.DataForm);
-                                    return form;
+                                var form = $sp(this).find("pubsub > configure > x").get(0);
+                                if(form){
+                                    return Strophe.Mixin.apply(form,
+                                                               dataform.mixins.DataForm);
                                 }
                             }
                         });
@@ -810,7 +806,7 @@ Strophe.addConnectionPlugin('pubsub', {
             if( call_back ){
                 var pubsub = this._conn.pubsub;
                 var callback_wrapper = function(response){
-                    Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                    response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
                     call_back(response);
                 }
                 
@@ -848,7 +844,7 @@ Strophe.addConnectionPlugin('pubsub', {
 
             var pubsub = this._conn.pubsub;
             var callback_wrapper = function(response){
-                Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+                response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
                 call_back(response);
             }
             
@@ -933,50 +929,55 @@ Strophe.addConnectionPlugin('pubsub', {
           Functionality specific to a pubsub XMPP packets  
         */
         PubSub: Strophe.Mixin.apply({
-            getPubsubItems: function(){
-                var pub = this.getElementsByTagName("pubsub");
-                if( pub && pub.length > 0 ){
-                    var items = pub[0].getElementsByTagName("item");
-                    return items;
-                }
-                return [];
+            getItems: function(){
+                return pubsub.mixins.Notification.getItems.apply(
+                    this, ["pubsub > publish, items > item"]);
             },
 
+            /** DEPRECATED! Use getItems instead **/
+            getPubsubItems: function(){
+                return this.getItems();
+            },
+
+            /**
+             * Returns the node name for the pubsub stanza.
+             */
+            getNode: function(){
+                return $sp(this).find("pubsub > publish, items, subscriptions").attr("node").get(0) || "";
+            },
+
+            /** DEPRECATED! Use getNode instead **/
             getSubscriptionsNode: function(){
-                var sub = this.getElementsByTagName("subscriptions");
-                if( sub && sub.length > 0 ){
-                    return sub[0].getAttribute("node");
-                }
-                return null;
+                return this.getNode();
             },
 
             getSubscriptions : function(){
-                var subElems = this.getElementsByTagName("subscription");
+                // subscriptions request response case:
+                var subElems = $sp(this).find("pubsub > subscriptions > subscription");
+                // subscribe response case:
+                subElems = subElems.concat($sp(this).find("pubsub > subscription"));
+
                 var subscriptions = new Array();
                 
                 // shove the items into an array
-                if (subElems != undefined && subElems.length > 0){
-                    for (var i=0; i < subElems.length; i++){
-                        var subElem = subElems[i];
+                subElems.each(function(subElem){
+                    var node = subElem.getAttribute('node') || null;
+                    var jid = subElem.getAttribute('jid') || null;
+                    var affiliation = subElem.getAttribute('affiliation') || null;
+                    var subscription = subElem.getAttribute('subscription') || null;
+                    var subid = subElem.getAttribute('subid') || null;
+                    
+                    subElem = Strophe.Mixin.apply(subElem, {
+                        node: node,
+                        jid: jid, 
+                        affiliation: affiliation, 
+                        subscription: subscription, 
+                        subid: subid
+                    });
+                    
+                    subscriptions.push(subElem);
+                });
 
-                        var node = subElem.getAttribute('node') || null;
-                        var jid = subElem.getAttribute('jid') || null;
-                        var affiliation = subElem.getAttribute('affiliation') || null;
-                        var subscription = subElem.getAttribute('subscription') || null;
-                        var subid = subElem.getAttribute('subid') || null;
-
-                        Strophe.Mixin.apply(subElem, 
-                                            {
-                                                node: node,
-                                                jid: jid, 
-                                                affiliation: affiliation, 
-                                                subscription: subscription, 
-                                                subid: subid
-                                            });
-
-                        subscriptions.push(subElem);
-                    }
-                }
                 return subscriptions;
             },
     
@@ -1006,6 +1007,13 @@ Strophe.addConnectionPlugin('pubsub', {
                 }
 
                 return exact_subids.concat(bare_subids);
+            },
+            
+            /**
+             * Returns the service that this stanza originated from
+             */
+            getService: function(){
+                return this.getFrom();
             }
         }, Strophe.Mixin.IQ),
 
@@ -1016,15 +1024,7 @@ Strophe.addConnectionPlugin('pubsub', {
              * Works for both 'items' and 'purge' notifications.
              */
             getNode: function(){
-                var items = this.getElementsByTagName("items");
-                if(!items.length)
-                    items = this.getElementsByTagName("purge");
-
-                if( items.length ){
-                    return items[0].getAttribute("node");
-                } else {
-                    return "";
-                }
+                return $sp(this).find("event > items, purge").attr("node").get(0) || "";
             },
     
             /**
@@ -1032,10 +1032,11 @@ Strophe.addConnectionPlugin('pubsub', {
              * Each item in the retunred array gets extra javascript properties:
              *  'id', 'payload', 'publisher', 'timestamp'
              */
-            getItems : function(type){
-                type = type || "item"
+            getItems : function(selector){
+                selector = selector || "event, pubsub > items > item";
 
-                var itemElems = this.getElementsByTagName(type); // retrieve the item elements from the XML node 
+                var itemElems = $sp(this).find(selector);
+
                 var pubSubItems = new Array();
                 
                 // shove the items in an array
@@ -1052,13 +1053,13 @@ Strophe.addConnectionPlugin('pubsub', {
                         var publisher = item.getAttribute('publisher');
                         var timestamp = item.getAttribute('timestamp');
 
-                        Strophe.Mixin.apply(item, 
-                                            {
-                                                id: id, 
-                                                payload: payload,
-                                                publisher: publisher,
-                                                timestamp: timestamp
-                                            });
+                        item = Strophe.Mixin.apply(item,
+                                                   {
+                                                       id: id, 
+                                                       payload: payload,
+                                                       publisher: publisher,
+                                                       timestamp: timestamp
+                                                   });
 
                         pubSubItems.push(item);
                     }
@@ -1071,14 +1072,14 @@ Strophe.addConnectionPlugin('pubsub', {
              * Each item in the retunred array has an attribute: 'id'
              */
             getRetractions : function(){
-                return this.getItems("retract");
+                return this.getItems("event > items > retract");
             },
 
             /**
              * Returns the purge element (at the same level as 'items') in the notification.
              */
             getPurge : function(){
-                return this.getItems("purge");
+                return this.getItems("event > purge");
             },
             
             /**
@@ -1089,4 +1090,12 @@ Strophe.addConnectionPlugin('pubsub', {
             }
         }, Strophe.Mixin.Message)
     }
+}
+
+if(callback){
+    callback(pubsub);
+}
+
+})(Strophe.Parser, function(pubsub){
+    Strophe.addConnectionPlugin('pubsub', pubsub);
 });

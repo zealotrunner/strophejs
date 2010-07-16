@@ -83,6 +83,18 @@
         });
 
         module("XML DOM Parser");
+
+        test("concat", function(){
+            var sp1 = $sp(["one", "two"]);
+            var sp2 = $sp(["three", "four"]);
+            var sp = sp1.concat(sp2);
+
+            equals(sp.length, 4);
+            equals(sp[0], "one");
+            equals(sp[1], "two");
+            equals(sp[2], "three");
+            equals(sp[3], "four");
+        });
         
         test("find", function(){
             var element = $build("a", {xmlns: "myns"})
@@ -99,16 +111,24 @@
             found = p.find("b");
             equals(found.length, 2, "Two 'b' elements found");
 
+            // find all b elems, alternate syntax
+            found = p.find("|b");
+            equals(found.length, 2, "Two '|b' elements found");
+
             // find all elems with "otherns"
-            found = p.find(null, "otherns");
+            found = p.find("otherns|");
             equals(found.length, 2, "Two 'otherns'-namespaced elements found");
 
             // find b elems with ns bns
-            found = p.find("b", "bns");
+            found = p.find("bns|b");
             equals(found.length, 1, "One 'b' element with 'bns' found");
 
             // find all elems
             found = p.find();
+            equals(found.length, 4, "All 4 elements found");
+
+            // find all elems using *
+            found = p.find("*");
             equals(found.length, 4, "All 4 elements found");
 
             // find none
@@ -116,8 +136,63 @@
             equals(found.length, 0, "No elements found");
 
             // test chaining
-            found = p.find(null, "otherns").filter("b");
+            found = p.find("otherns|").filter("b");
             equals(found.length, 1, "Found 1 element via chaining");
+        });
+
+        test("find with complex selectors", function(){
+            var element = 
+                $("<a xmlns='myns'>"
+                  + "  <b xmlns='bns'/>"
+                  + "  <b xmlns='otherns'>"
+                  + "    <d>"
+                  + "      <e>e text</e>"
+                  + "    </d>"
+                  + "  </b>"
+                  + "  <c xmlns='otherns'>"
+                  + "    <d>d2 text</d>"
+                  + "  </c>"
+                  + "  <c xmlns='cns'/>"
+                  + "</a>").get(0);
+            
+            var p = $sp(element);
+            var found;
+
+            // find all b > d elems
+            found = p.find("b > d");
+            equals(found.length, 1, "Found 1 'b > d' elements");
+
+            // find no x > d elems
+            found = p.find("x > d");
+            equals(found.length, 0, "Found 0 'x > d' elements");
+
+            // do 3 levels (invalid)!
+            found = p.find("a > b > d");
+            equals(found.length, 0, "Found 0 'a > b > d' elements");
+
+            // do 3 levels (valid)!
+            found = p.find("b > d > e");
+            equals(found.length, 1, "Found 1 'b > d > e' elements");
+
+            // just an or (,) selector
+            found = p.find("b, c");
+            equals(found.length, 4, "Found 4 'b, c' elements");
+
+            // both the > and , selectors
+            found = p.find("b, c > d");
+            equals(found.length, 2, "Found 2 'b, c > d' elements");
+
+            // find all grandchild d elements
+            found = p.find("* > d");
+            equals(found.length, 2, "Found 2 '* > d' elements");
+
+            // text value of a single element
+            found = p.find("b > d > e").text();
+            equals(found, "e text");
+
+            // no (empty) text
+            found = p.find("bns|b").text();
+            equals(found, "");
         });
 
         test("filter", function(){
@@ -167,6 +242,103 @@
 
             equals($sp(element).attr("xmlns").get(0), "myns", "xmlns attr found");
             equals($sp(element).attr("attr").get(0), "attribute", "generic attr found");
+        });
+
+
+        module("Stanza Mixins");
+
+        test("Stanza mixin", function(){
+            var stanza = 
+                $("<presence"
+                  + "    id='pres_id'"
+                  + "    from='darkcave@chat.shakespeare.lit/thirdwitch'"
+                  + "    to='crone1@shakespeare.lit/desktop'"
+                  + "    type='unavailable'>"
+                  + "  <x xmlns='http://jabber.org/protocol/muc#user'>"
+                  + "    <item affiliation='member'"
+                  + "          jid='hag66@shakespeare.lit/pda'"
+                  + "          nick='oldhag'"
+                  + "          role='participant'/>"
+                  + "    <status code='303'/>"
+                  + "  </x>"
+                  + "</presence>").get(0);
+
+            stanza = Strophe.Mixin.apply(stanza, Strophe.Mixin.Stanza);
+
+            equals(stanza.getTo(), "crone1@shakespeare.lit/desktop");
+            equals(stanza.getFrom(), "darkcave@chat.shakespeare.lit/thirdwitch");
+            equals(stanza.getName().toLowerCase(), "presence");
+            equals(stanza.getType(), "unavailable");
+            equals(stanza.getId(), "pres_id");
+            equals(stanza.getExtensionsByNS(
+                "http://jabber.org/protocol/muc#user").length, 1);
+            equals(stanza.getExtensions().length, 1);            
+        });
+
+        test("Message mixin", function(){
+            var msg = 
+                $build("message", {
+                    from: 'darkcave@chat.shakespeare.lit/firstwitch',
+                    to: 'hecate@shakespeare.lit/broom',
+                    type: 'groupchat'})
+                .c("body").t("Thrice the brinded cat hath mew'd.").up()
+                .c("delay", {xmlns: 'urn:xmpp:delay',
+                             from:  'crone1@shakespeare.lit/desktop',
+                             stamp: '2002-10-13T23:58:37Z'}).tree();
+
+            msg = Strophe.Mixin.apply(msg, Strophe.Mixin.Message);
+
+            ok(msg.getBody(), "body found");
+            equals(msg.getBodyText(), "Thrice the brinded cat hath mew'd.");
+            equals(msg.getDelay(), "2002-10-13T23:58:37Z");
+        });
+
+        test("IQ mixin", function(){
+            var iq = 
+                $("<iq to='juliet@example.com/balcony' type='result' id='roster_1'>"
+                  + "  <query xmlns='jabber:iq:roster'>"
+                  + "    <item jid='romeo@example.net'"
+                  + "          name='Romeo'"
+                  + "          subscription='both'>"
+                  + "      <group>Friends</group>"
+                  + "    </item>"
+                  + "    <item jid='mercutio@example.org'"
+                  + "          name='Mercutio'"
+                  + "          subscription='from'>"
+                  + "      <group>Friends</group>"
+                  + "    </item>"
+                  + "    <item jid='benvolio@example.org'"
+                  + "          name='Benvolio'"
+                  + "          subscription='both'>"
+                  + "      <group>Friends</group>"
+                  + "    </item>"
+                  + "  </query>"
+                  + "</iq>").get(0);
+
+            iq = Strophe.Mixin.apply(iq, Strophe.Mixin.IQ);
+
+            ok(iq.getQuery(), "query element found");
+            ok(iq.getQuery("jabber:iq:roster"), "query by ns succeedd");
+            equals(iq.getQueryNS(), "jabber:iq:roster");
+        });
+
+        test("Presence mixin", function(){
+            var pres = 
+                $("<presence"
+                  + "    from='juliet@example.com/balcony'"
+                  + "    to='romeo@example.net/orchard'"
+                  + "    xml:lang='en'>"
+                  + "  <show>away</show>"
+                  + "  <status>be right back</status>"
+                  + "  <priority>0</priority>"
+                  + "</presence>").get(0);
+
+            pres = Strophe.Mixin.apply(pres, Strophe.Mixin.Presence);
+
+            equals(pres.getStatuses().length, 1);
+            equals(pres.getStatus(), "be right back");
+            equals(pres.getShow(), "away");
+            equals(pres.getPriority(), "0");
         });
     });
   </script>
