@@ -17,7 +17,7 @@
   <script src='../plugins/mixin.support.js'></script>
 
   <!-- Library component being tested -->
-  <script src='../plugins/strophe.roster.js'></script>
+  <script src='../plugins/plugin.roster.js'></script>
 
 
   <!-- Actual test code -->
@@ -43,7 +43,7 @@
 
             // example taken from RFC 3921 (and group removed from Romeo, 
             //   and added group to Benvolio):
-            var rosterElem = $("<iq to='juliet@example.com/balcony' type='result' id='roster_1'><query xmlns='jabber:iq:roster'><item jid='romeo@example.net' name='Romeo' subscription='both'></item><item jid='mercutio@example.org' name='Mercutio' subscription='from'><group>Friends</group></item><item jid='benvolio@example.org' name='Benvolio' subscription='both'><group>Friends</group><group>Enemies</group></item></query></iq>").get(0);
+            var rosterElem = Strophe.Util.parseXML("<iq to='juliet@example.com/balcony' type='result' id='roster_1'><query xmlns='jabber:iq:roster'><item jid='romeo@example.net' name='Romeo' subscription='both'></item><item jid='mercutio@example.org' name='Mercutio' subscription='from'><group>Friends</group></item><item jid='benvolio@example.org' name='Benvolio' subscription='both'><group>Friends</group><group>Enemies</group></item></query></iq>");
 
             var handler = roster.requestRoster(function(response){
                 var items = response.getItems();
@@ -69,6 +69,22 @@
 
             // trigger handler
             handler.run(rosterElem);
+        });
+
+        test("subscription handler registration", function(){
+            var conn = new Strophe.Connection();
+            
+            var registered = conn.roster.registerHandlers({
+                subscribe: function(pres){},
+                subscribed: function(pres){},
+                unsubscribe: function(pres){},
+                unsubscribed: function(pres){}
+            });
+
+            ok(registered.subscribe, "subscribe handler registered");
+            ok(registered.subscribed, "subscribed handler registered");
+            ok(registered.unsubscribe, "unsubscribe handler registered");
+            ok(registered.unsubscribed, "unsubscribed handler registered");
         });
     });
   </script>

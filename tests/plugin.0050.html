@@ -1,0 +1,69 @@
+<html>
+<head>
+  <!-- Testing framework: QUnit -->
+<!--   <script src='../../df/tests/lib/qunit.js'></script> -->
+<!--   <link rel="stylesheet" href='../../df/tests/lib/qunit.css' type="text/css" /> -->
+<script src="http://github.com/jquery/qunit/raw/master/qunit/qunit.js"></script>
+<link rel="stylesheet" href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" type="text/css">
+
+
+  <!-- Base libraries -->
+<!--   <script src='../../jquery/jquery.js'></script> -->
+  <script src="http://code.jquery.com/jquery-latest.min.js"></script>
+  <script src='../src/core.js'></script>
+  <script src='../src/md5.js'></script>
+  <script src='../src/base64.js'></script>
+
+  <script src='../plugins/mixin.support.js'></script>
+
+  <!-- Library component being tested -->
+  <script src='../plugins/plugin.0050.js'></script>
+
+
+  <!-- Actual test code -->
+  <script>
+    $(document).ready(function(){
+        module("Integrity");
+        
+        var adhoc = new Strophe.Connection().adhoc;
+
+        test("adhoc items mixin", function(){
+            ok(adhoc, "adhoc exists");
+            ok(adhoc.mixins, "adhoc mixins exist");
+            ok(adhoc.mixins.Adhoc, "adhoc exists");
+        });
+
+        test("node / action", function(){
+            var $iq = Strophe.Util.parseXML("<iq type='set' to='responder@domain' id='exec1'> <command xmlns='http://jabber.org/protocol/commands' node='list' action='action'/> </iq> ");
+            var cmd = Strophe.Mixin.apply($iq, adhoc.mixins.Adhoc);
+            equals(cmd.getNode(), 'list');
+            equals(cmd.getAction(), 'action');
+        });
+        
+        test("no action", function(){
+            var $iq = Strophe.Util.parseXML("<iq type='set' to='responder@domain' id='exec1'> <command xmlns='http://jabber.org/protocol/commands' node='list'/> </iq> ");
+            var cmd = Strophe.Mixin.apply($iq, adhoc.mixins.Adhoc);
+            equals(cmd.getAction(), 'execute');
+        });
+        
+        test("error type", function(){
+            var $iq = Strophe.Util.parseXML("<iq type='error' id='7958:exec' from='kyle@kyle.drakontas.com/test' to='kyle@kyle.drakontas.com/web.e3563'> <command xmlns='http://jabber.org/protocol/commands' node='logout' action='execute'/> <error code='503' type='cancel'> <service-unavailable xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/> </error> </iq>");
+            var cmd = Strophe.Mixin.apply($iq, adhoc.mixins.Adhoc);
+            equals(cmd.getType(), 'error');
+        });
+
+    });
+
+  </script>
+</head>
+
+<body>
+
+  <h1 id="qunit-header">Adhoc Command Tests</h1>
+  <h2 id="qunit-banner"></h2>
+  <h2 id="qunit-userAgent"></h2>
+  <ol id="qunit-tests"></ol>
+  
+  
+</body>
+</html>

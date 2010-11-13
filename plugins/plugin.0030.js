@@ -19,14 +19,14 @@ Strophe.addConnectionPlugin('disco', {
 	    */
 	    
 	    /* extend name space 
-	     *  NS.PUBSUB - XMPP Publish Subscribe namespace
-	     *              from XEP 60.  
-	     *
-	     *  NS.PUBSUB_SUBSCRIBE_OPTIONS - XMPP pubsub
-	     *                                options namespace from XEP 60.
+	     *  NS.DISCO_ITEMS - #items namespace
+	     *                  
+	     *  NS.DISCO_INFO - #info namespace
 	     */
         Strophe.addNamespace('DISCO_ITEMS',
                              "http://jabber.org/protocol/disco#items");
+        Strophe.addNamespace('DISCO_INFO',
+                             "http://jabber.org/protocol/disco#info");
     },
 
     /*
@@ -55,9 +55,9 @@ Strophe.addConnectionPlugin('disco', {
         if( call_back ){
             var disco = this;
             var callback_wrapper = function(response){
-                Strophe.Mixin.apply(response, 
-                                    disco.mixins.DiscoItems, 
-                                    mixins);
+                response = Strophe.Mixin.apply(response, 
+                                               disco.mixins.DiscoItems, 
+                                               mixins);
                 call_back(response);
             }
             
@@ -74,7 +74,7 @@ Strophe.addConnectionPlugin('disco', {
         var DiscoItems = Strophe.Mixin.apply({
             getItems: function(){
                 var itemElems = this.getElementsByTagName('item');
-                var discoItems = new Array();
+                var discoItems = [];
 
                 // shove the items in an array
                 if (itemElems != null && itemElems.length > 0){
@@ -85,8 +85,9 @@ Strophe.addConnectionPlugin('disco', {
                         var node = item.getAttribute('node') || null;
                         var name = item.getAttribute('name') || null;
 
-                        Strophe.Mixin.apply(item, {
-                            jid: jid, node: node, 
+                        item = Strophe.Mixin.apply(item, {
+                            jid: jid,
+                            node: node,
                             name: name,
                             toString: DiscoItems.__item_toString });
                         discoItems.push(item);
@@ -109,7 +110,7 @@ Strophe.addConnectionPlugin('disco', {
                 function append(target, content){
                     return target ? target + ", " + content : content;
                 }
-                var str;
+                var str = "";
                 if( this.jid )
                     str = append(str, "jid: " + this.jid);
                 if( this.node )

@@ -17,7 +17,7 @@
   <script src='../plugins/mixin.support.js'></script>
 
   <!-- Library component being tested -->
-  <script src='../plugins/strophe.dataform.js'></script>
+  <script src='../plugins/plugin.0004.js'></script>
 
 
   <!-- Actual test code -->
@@ -112,7 +112,7 @@
             
             equals(Strophe.serialize(form), serialized, "field serialized correctly");
 
-            var node = $(serialized)[0];
+            var node = Strophe.Util.parseXML(serialized);
             node = Strophe.Mixin.apply(node, dataform.mixins.DataForm);
             
             same(fields, node.unserialize(), "field unserialized correctly");
@@ -122,7 +122,7 @@
             var serialized = "<x xmlns='jabber:x:data' type='form'><reported><field type='text-single' label='field 1 description' var='field1'/><field type='text-single' label='field 2 description' var='field2'/></reported><item><field var='field1'><value>field1-value 1</value></field><field var='field2'><value>field2-value 1</value></field></item><item><field var='field1'><value>field1-value 2</value></field><field var='field2'><value>field2-value 2</value></field></item></x>";
                 
             
-            var x = $(serialized).get(0);
+            var x = Strophe.Util.parseXML(serialized);
             var form = Strophe.Mixin.apply(x, dataform.mixins.DataForm);
 
             // test items getting

@@ -16,11 +16,136 @@ Strophe.Util.isArray = function(obj){
         return false;
     }
 };
+Strophe.Util.parseXML = function(xml){
+    if (window.DOMParser){
+        parser=new DOMParser();
+        xmlDoc=parser.parseFromString(xml,"text/xml");
+    }
+    else { // Internet Explorer
+        xmlDoc=Strophe._getIEXmlDom();
+        xmlDoc.async="false";
+        xmlDoc.loadXML(xml);
+    }
+    return xmlDoc.firstChild;
+};
 
 
 (function (callback) {
-
 var Mixin = {};
+
+var wrapHelper = {
+    properties: [ "attributes", "baseURI", "childNodes", 
+                  "firstChild", "lastChild", "localName", 
+                  "namespaceURI", "nextSibling", "nodeName", 
+                  "nodeType", "nodeValue", "ownerDocument", 
+                  "parentNode", "prefix", "previousSibling", 
+                  "tagName", "textContent" ],
+
+    methods: [ "appendChild", "cloneNode", "compareDocumentPosition", 
+               "getAttribute", "getAttributeNS", "getAttributeNode", 
+               "getAttributeNodeNS", "getElementsByTagName", 
+               "getElementsByTagNameNS", "getFeature", "getUserData", 
+               "hasAttribute", "hasAttributeNS", "hasAttributes", 
+               "hasChildNodes", "insertBefore", "isDefaultNamespace", 
+               "isEqualNode", "isSameNode", "isSupported", 
+               "lookupNamespaceURI", "lookupPrefix", "normalize", 
+               "removeAttribute", "removeAttributeNS", "removeAttributeNode", 
+               "removeChild", "replaceChild", "setUserData", 
+               "setAttribute", "setAttributeNS", "setAttributeNode", 
+               "setAttributeNodeNS", "setIdAttribute", "setIdAttributeNS", 
+               "setIdAttributeNode" ],
+
+    modifiedRegExp: new RegExp("^(set|remove|insert|append|replace|normalize)"),
+
+    wrapMethod: function(obj, methodName){
+        return function(){
+            // make another reference to the arguments array so that
+            // it's not clobered inside eval()
+            var args = arguments;
+            var argslist = "";
+
+            for(var i = 0; i < arguments.length-1; i++){
+                argslist += "args[" + i + "], ";
+            }
+            argslist += "args[" + i + "]";
+            
+            var exe = 'this.dom.' + methodName + "(" + argslist + ")";
+            var ret = eval(exe);
+
+            if(wrapHelper.modifiedRegExp.test(methodName)){
+                this._updateWrappedProperties();
+            }
+
+            return ret;
+        }
+    }
+};
+var needToWrap = undefined;
+
+/** 
+ * Helper function to wrap an IE ActiveX DOM Element
+ * with something that we can apply mixins to
+ * while keeping the same DOM Element interface
+ */
+function wrapForIe(obj){
+    if(needToWrap === false){
+        return obj;
+    } else if(needToWrap === true){
+        // continue...
+    } else {
+        // determine if we need to wrap (should only be done once)
+        try {
+            if(obj.attributes){
+                obj.___test = "a test";
+                delete obj.___test;
+                needToWrap = false;
+            }
+            return obj;
+        } catch(e){
+            // need to wrap, continue
+            needToWrap = true;
+        }
+    }
+
+    var wrapped = {
+        dom: obj,
+
+        // used to update properties after an opertation that may change them
+        _updateWrappedProperties: function(){
+            var properties = wrapHelper.properties;
+            for(var prop = 0; prop < properties.length; prop++){
+                this[properties[prop]] = obj[properties[prop]];
+            }
+        }
+    };
+
+    wrapped._updateWrappedProperties();
+
+    var methods = wrapHelper.methods;
+    var wrapMethod = wrapHelper.wrapMethod;
+    var name;
+    for(var m = 0; m < methods.length; m++){
+        name = methods[m];
+        wrapped[name] = wrapMethod(obj, name);
+    }
+
+    // optimized versions of the most commonly used methods (no eval)
+    // TODO: benchmark this!
+    wrapped.getElementsByTagName = function(name){
+        return this.dom.getElementsByTagName(name);
+    };
+    wrapped.getAttribute = function(name){
+        return this.dom.getAttribute(name);
+    };
+    wrapped.appendChild = function(child){
+        var ret = this.dom.appendChild(child);
+        this._updateWrappedProperties();
+        return ret;
+    };
+
+    return wrapped;
+};
+
 
 /** 
  * Applies a Mixin list 'mixins' to the (DOM) object 'target'.
@@ -33,6 +158,8 @@ var Mixin = {};
  */
 Mixin.apply =  function(target, mixins) {
     if (target) {
+        target = wrapForIe(target);  // noop for well-behaved browsers
+
         for(var a = 1; a < arguments.length; a++){
             mixins = arguments[a];
 
@@ -49,6 +176,12 @@ Mixin.apply =  function(target, mixins) {
                     if( mixin.hasOwnProperty(i) ){
                         target[i] = mixin[i];
                     }
+                }
+
+                //explicitely handle toString for IE compliance
+                if(mixin.hasOwnProperty("toString") && 
+                   mixin.toString != Object.prototype.toString){
+                    target.toString = mixin.toString;
                 }
             }
         }
@@ -222,7 +355,7 @@ var Message = Mixin.apply({
     getBodyText: function(){
         var bodyElem = this.getElementsByTagName('body');
         if (bodyElem.length && bodyElem.length > 0){
-            return bodyElem[0].textContent;
+            return Strophe.getText(bodyElem[0]);
         }
         return false;
     }
@@ -280,6 +413,17 @@ var Presence = Mixin.apply({
 
     getPriority: function(){
         return new Strophe.Parser(this).find("priority").text();
+    },
+
+    getCapsNode: function(){
+        var capsElem = new Strophe.Parser(this).find("c");
+        if( capsElem ) {
+            var node = capsElem.attr("node");
+            if( node ) {
+                return node.get(0);
+            }
+        }
+        return null;
     }
 }, Stanza);
 
@@ -291,7 +435,6 @@ Mixin.apply(Mixin, {
     IQ: IQ,
     Presence: Presence
 });
-
 
 if (callback) {
     callback(Mixin);
@@ -324,58 +467,55 @@ var trimArray = function(array){
 }
 
 var Parser = function(data){
-    if(this == window){
+    if(this == window || this == window.Strophe){
         // allow calling without new keyword
         return new Parser(data);
     }
 
-    data = data || [];
-    data = isArray(data) ? data : [data];
-    for(var i = 0; i < data.length; i++){
-        this.push(data[i]);
+    this.elements = [];
+    this.length = 0;
+
+    if(data instanceof Parser){
+        var that = this;
+        data.each(function(el){
+            that.push(el);
+        });
+    } else {
+        data = isArray(data) ? data : [data];
+        for(var i = 0; i < data.length; i++){
+            this.push(data[i]);
+        }
     }
-    // update length property (doesn't happen on IE)
-    this.length = i;
 }
 
 var parser_api = {
     get: function(index){
-        return this[index];
+        return this.elements[index];
     },
 
     eq: function(index){
         return new Parser([this.get(index)]);
     },
 
+    push: function(elem){
+        this.elements.push(elem);
+        this.length = this.count();
+    },
+
+    count: function(){
+        return this.elements.length;
+    },
+
     each: function(func){
         if(func){
-            for(var p in this){
-                if(this.hasOwnProperty(p) && p != 'length'){
-                    func(this[p]);
+            for(var p in this.elements){
+                if(this.elements.hasOwnProperty(p) && p != 'length'){
+                    func(this.elements[p]);
                 }
             }
         }
 
         return this;
-    },
-
-    /**
-     * Allows two SP instances to be conatinated (like an array).
-     * Does not modify either instance, but returns new SP instance.
-     */
-    concat: function(other){
-        var result = new Parser();
-        this.each(function(item){
-            console.log("item 1", item);
-            result.push(item);
-        });
-
-        other.each(function(item){
-            console.log("item 2", item);
-            result.push(item);
-        });
-
-        return result;
     },
 
 
@@ -411,8 +551,8 @@ var parser_api = {
             hierarchy = trimArray(selector.split(">"));
         }
 
-        this.each(function(e){
-            if(e !== undefined && e !== null){
+        this.each(function(el){
+            if(el !== undefined && el !== null){
                 var nodeName = hierarchy[0];
                 var ns = null;
 
@@ -439,10 +579,10 @@ var parser_api = {
                     }
                     // allow empty ns to mean no ns specified
                     ns = ns == ""? null : ns;
-                    
-                    Strophe.forEachChild(e, nodeName, function (elem) {
+
+                    Strophe.forEachChild(el, nodeName, function (elem) {
                         if (ns == null || elem.getAttribute("xmlns") == ns ) {
-                            
+
                             // look ahead
                             if(hierarchy[1]){
                                 Parser(elem).find(hierarchy.slice(1).join(">")).each(function(elem){
@@ -477,13 +617,13 @@ var parser_api = {
      *    A Parser instance (could be empty).
      *
      */
-    filter: function(nodeName, ns, filter){
+    filter: function(nodeName, ns, filterfn){
         var elements = [];
         if(!ns && ns === undefined){
             ns = null;
         }
 
-        filter = filter || function(e){
+        filterfn = filterfn || function(e){
             if(e !== undefined && e !== null){
                 if (e.nodeType == Strophe.ElementType.NORMAL &&
                     (!nodeName || Strophe.isTagEqual(e, nodeName)) && 
@@ -494,10 +634,10 @@ var parser_api = {
         }
 
         this.each(function(e){
-            if(filter(e))
+            if(filterfn(e))
                 elements.push(e);
         });
-        
+
         return new Parser(elements);
     },
 
@@ -516,9 +656,9 @@ var parser_api = {
      *
      */
     attr: function(attrName){
-        var result = []
+        var result = [];
         this.each(function(e){
-            e.getAttribute && result.push(e.getAttribute(attrName));
+            result.push(e.getAttribute(attrName));
         });
 
         return new Parser(result);
@@ -543,9 +683,6 @@ var parser_api = {
         return ret; 
     }
 }
-
-
-Parser.prototype = new Array();
 
 for(var i in parser_api){
     if( parser_api.hasOwnProperty(i) ){

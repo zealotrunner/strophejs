@@ -6,8 +6,6 @@
 
 /*
  * TODO:
- * - add support for 'reported' and 'item' children of the form
- *   ('field' elements SHOULD NOT contain 'value' when contained in 'reported')
  * - add support for 'desc' child of 'field'
  */
 
@@ -129,9 +127,11 @@ Strophe.addConnectionPlugin('dataform', {
             vals = vals[0];
         }
         
-        if( vals.length > 0 ){
-            field.content.value = vals;
+        if( !(vals.length > 0) ){
+            vals = "";
         }
+        
+        field.content.value = vals;
 
 
         var required = fieldNode.getElementsByTagName("required");
@@ -398,7 +398,8 @@ Strophe.addConnectionPlugin('dataform', {
              * Sets a form field (i.e. an XML Node).  Makes sure it is empty first.
              * 
              * Parameters:
-             *  (String) var_name - The 'var' attribute name of the form.
+             *  (XMLElement) fieldNode - The "field" DOM node to apply field to
+             *  (Object) field - The object that represents a field
              *
              * Returns:
              *    An XMLElement that represents the field or null if not found.
@@ -591,6 +592,10 @@ Strophe.addConnectionPlugin('dataform', {
                 if( vals.length == 1 ){
                     vals = vals[0];
                 }
+
+                if( !(vals.length > 0) ){
+                    vals = "";
+                }
                 
                 field.content.value = vals;
 
@@ -617,12 +622,204 @@ Strophe.addConnectionPlugin('dataform', {
                 var fields = [];
                 var form = this;
 
-                Strophe.forEachChild(form.getDOM(), "field", function(field){
+                Strophe.forEachChild(form, "field", function(field){
                     fields.push(form.unserializeField(field));
                 });
 
                 return fields;
             },
+
+            
+            /**
+             * Function: getReported
+             *  
+             * Turns this form's "reported" fields
+             * The returned serialized version is suitable for passing to setReported().
+             * 
+             * Example return:
+             * >  items = [
+             * >      [ // reported field 1
+             * >          {'var': 'field1',
+             * >           label: 'field 1 label',
+             * >           type: 'text-single'},
+             * >      ],
+             * >      [ // reported field 2
+             * >          {'var': 'field2',
+             * >           label: 'field 2 label',
+             * >            type: 'text-single'},
+             * >      ]
+             * >  ]
+             *
+             * Returns:
+             *    An array of javascript objects representing all the "reported" 
+             *      fields in the form.
+             *    Or empty array if no reported elements are found
+             *
+             */
+            getReported: function(){
+                return this.getItems("reported")[0] || [];
+            },
+
+
+            /**
+             * Function: setReported
+             *  
+             * Sets the "reported" fields in this form to the the array of fields.
+             * 
+             * Parameters:
+             *  (Array) fields - An array of fields. 
+             *                  If 'fields' is undefined or null, it is treated as
+             *                  an empty array - all current reported fields are cleared
+             *
+             * Example input:
+             * >  items = [
+             * >      // reported field 1
+             * >      {'var': 'field1',
+             * >       label: 'field 1 label',
+             * >       type: 'text-single'},
+             * >      
+             * >      // reported field 2
+             * >      {'var': 'field2',
+             * >       label: 'field 2 label',
+             * >        type: 'text-single'},
+             * >  ]
+             *
+             * Returns:
+             *    the form (this)
+             *
+             */
+            setReported: function(fields){
+                // 1. remove all "reported" fields
+                var form = this;
+
+                Strophe.forEachChild(form, "reported", function(reported){
+                    reported.parentNode.removeChild(reported);
+                });
+
+                // update properties because we modified the tree above
+                if(form._updateWrappedProperties)
+                    form._updateWrappedProperties();
+
+                // 2. set reported fields to the passed in fields
+                fields = fields || [];
+                if(fields.length > 0){
+                    var reportedNode = $build("reported").tree();
+                    form.insertBefore(reportedNode, form.firstChild);
+                    
+                    for(var j = 0; j < fields.length; j++){
+                        var fieldNode = $build("field").tree();
+                        form._setFieldNode(fieldNode, fields[j]);
+                        reportedNode.appendChild(fieldNode);
+                    }
+                }
+
+                return this;
+            },
+
+
+            /**
+             * Function: getItems
+             *  
+             * Turns this form's items it into a 2D array of fields.
+             * The returned serialized version is suitable for passing to setItems().
+             * 
+             * Example return:
+             * >  items = [
+             * >      [ // row/item 1
+             * >          {'var': 'field1',
+             * >           content: {value: 'Value 1'}},
+             * >          {'var': 'field2',
+             * >           content: {value: 'Value 1'}},
+             * >      ],
+             * >      [ // row/item 2
+             * >          {'var': 'field1',
+             * >           content: {value: 'Value 2'}},
+             * >          {'var': 'field2',
+             * >           content: {value: 'Value 2'}},
+             * >      ]
+             * >  ]
+             *
+             * Returns:
+             *    An array of javascript objects representing all the fields in the form.
+             *    Or empty array if no items are found
+             *
+             */
+            getItems: function(elemName){
+                var items = [];
+                var form = this;
+
+                elemName = elemName || "item";
+
+                Strophe.forEachChild(form, elemName, function(item){
+                    var fields = [];
+                    Strophe.forEachChild(item, "field", function(field){
+                        fields.push(form.unserializeField(field));
+                    });
+                    items.push(fields);
+                });
+
+                return items;
+            },
+
+            /**
+             * Function: setItems
+             *  
+             * Sets the items in this form to the a 2D array of fields.
+             * 
+             * Parameters:
+             *  (Array) items - A 2D array of fields (item rows). 
+             *                  If items is undefined or null, it is treated as
+             *                  an empty array - all current items are cleared
+             *
+             * Example input:
+             * >  [
+             * >      [ // row/item 1
+             * >          {'var': 'field1',
+             * >           content: {value: 'Value 1'}},
+             * >          {'var': 'field2',
+             * >           content: {value: 'Value 1'}},
+             * >      ],
+             * >      [ // row/item 2
+             * >          {'var': 'field1',
+             * >           content: {value: 'Value 2'}},
+             * >          {'var': 'field2',
+             * >           content: {value: 'Value 2'}},
+             * >      ]
+             * >  ]
+             *
+             * Returns:
+             *    the form (this)
+             *
+             */
+            setItems: function(items){
+                // 1. remove all items
+                var form = this;
+
+                var existing_items = [];
+                Strophe.forEachChild(form, "item", function(item){
+                    existing_items.push(item);
+                });
+
+                for(var i = 0; i < existing_items.length; i++){
+                    existing_items[i].parentNode.removeChild(existing_items[i]);
+                }
+
+                // 2. set items to the passed in items
+                items = items || [];
+                for(var i = 0; i < items.length; i++){
+                    var fields = items[i] || [];
+                    var itemNode = $build("item").tree();
+                    form.appendChild(itemNode);
+                    for(var j = 0; j < fields.length; j++){
+                        var fieldNode = $build("field").tree();
+                        form._setFieldNode(fieldNode, fields[j]);
+                        itemNode.appendChild(fieldNode);
+                    }
+                }
+
+                return this;
+            },
+
 
             /**
              * Function: getDOM
