@@ -17,8 +17,9 @@ Strophe.Util.isArray = function(obj){
     }
 };
 Strophe.Util.parseXML = function(xml){
+    var xmlDoc;
     if (window.DOMParser){
-        parser=new DOMParser();
+        var parser=new DOMParser();
         xmlDoc=parser.parseFromString(xml,"text/xml");
     }
     else { // Internet Explorer
@@ -33,61 +34,14 @@ Strophe.Util.parseXML = function(xml){
 (function (callback) {
 var Mixin = {};
 
-var wrapHelper = {
-    properties: [ "attributes", "baseURI", "childNodes", 
-                  "firstChild", "lastChild", "localName", 
-                  "namespaceURI", "nextSibling", "nodeName", 
-                  "nodeType", "nodeValue", "ownerDocument", 
-                  "parentNode", "prefix", "previousSibling", 
-                  "tagName", "textContent" ],
 
-    methods: [ "appendChild", "cloneNode", "compareDocumentPosition", 
-               "getAttribute", "getAttributeNS", "getAttributeNode", 
-               "getAttributeNodeNS", "getElementsByTagName", 
-               "getElementsByTagNameNS", "getFeature", "getUserData", 
-               "hasAttribute", "hasAttributeNS", "hasAttributes", 
-               "hasChildNodes", "insertBefore", "isDefaultNamespace", 
-               "isEqualNode", "isSameNode", "isSupported", 
-               "lookupNamespaceURI", "lookupPrefix", "normalize", 
-               "removeAttribute", "removeAttributeNS", "removeAttributeNode", 
-               "removeChild", "replaceChild", "setUserData", 
-               "setAttribute", "setAttributeNS", "setAttributeNode", 
-               "setAttributeNodeNS", "setIdAttribute", "setIdAttributeNS", 
-               "setIdAttributeNode" ],
-
-    modifiedRegExp: new RegExp("^(set|remove|insert|append|replace|normalize)"),
-
-    wrapMethod: function(obj, methodName){
-        return function(){
-            // make another reference to the arguments array so that
-            // it's not clobered inside eval()
-            var args = arguments;
-            var argslist = "";
-
-            for(var i = 0; i < arguments.length-1; i++){
-                argslist += "args[" + i + "], ";
-            }
-            argslist += "args[" + i + "]";
-            
-            var exe = 'this.dom.' + methodName + "(" + argslist + ")";
-            var ret = eval(exe);
-
-            if(wrapHelper.modifiedRegExp.test(methodName)){
-                this._updateWrappedProperties();
-            }
-
-            return ret;
-        }
-    }
-};
 var needToWrap = undefined;
-
 /** 
- * Helper function to wrap an IE ActiveX DOM Element
+ * Helper class to wrap an IE ActiveX DOM Element
  * with something that we can apply mixins to
  * while keeping the same DOM Element interface
  */
-function wrapForIe(obj){
+function DOMWrapper(obj){
     if(needToWrap === false){
         return obj;
     } else if(needToWrap === true){
@@ -107,43 +61,84 @@ function wrapForIe(obj){
         }
     }
 
-    var wrapped = {
-        dom: obj,
+    this.dom = obj;
 
-        // used to update properties after an opertation that may change them
-        _updateWrappedProperties: function(){
-            var properties = wrapHelper.properties;
-            for(var prop = 0; prop < properties.length; prop++){
-                this[properties[prop]] = obj[properties[prop]];
-            }
-        }
-    };
+    this._updateWrappedProperties();
 
-    wrapped._updateWrappedProperties();
-
-    var methods = wrapHelper.methods;
-    var wrapMethod = wrapHelper.wrapMethod;
     var name;
-    for(var m = 0; m < methods.length; m++){
-        name = methods[m];
-        wrapped[name] = wrapMethod(obj, name);
+    for(var m = 0; m < this._methods.length; m++){
+        name = this._methods[m];
+        this[name] = this.wrapMethod(name);
     }
+};
+
+DOMWrapper.prototype = {
+    // used to update properties after an opertation that may change them
+    _updateWrappedProperties: function(){
+        for(var prop = 0; prop < this._properties.length; prop++){
+            this[this._properties[prop]] = this.dom[this._properties[prop]];
+        }
+    },
 
     // optimized versions of the most commonly used methods (no eval)
     // TODO: benchmark this!
-    wrapped.getElementsByTagName = function(name){
+    getElementsByTagName: function(name){
         return this.dom.getElementsByTagName(name);
-    };
-    wrapped.getAttribute = function(name){
+    },
+    getAttribute: function(name){
         return this.dom.getAttribute(name);
-    };
-    wrapped.appendChild = function(child){
+    },
+    appendChild: function(child){
         var ret = this.dom.appendChild(child);
         this._updateWrappedProperties();
         return ret;
-    };
+    },
 
-    return wrapped;
+    _properties: [ "attributes", "baseURI", "childNodes", 
+                   "firstChild", "lastChild", "localName", 
+                   "namespaceURI", "nextSibling", "nodeName", 
+                   "nodeType", "nodeValue", "ownerDocument", 
+                   "parentNode", "prefix", "previousSibling", 
+                   "tagName", "textContent" ],
+    
+    _methods: [ "appendChild", "cloneNode", "compareDocumentPosition", 
+                "getAttribute", "getAttributeNS", "getAttributeNode", 
+                "getAttributeNodeNS", "getElementsByTagName", 
+                "getElementsByTagNameNS", "getFeature", "getUserData", 
+                "hasAttribute", "hasAttributeNS", "hasAttributes", 
+                "hasChildNodes", "insertBefore", "isDefaultNamespace", 
+                "isEqualNode", "isSameNode", "isSupported", 
+                "lookupNamespaceURI", "lookupPrefix", "normalize", 
+                "removeAttribute", "removeAttributeNS", "removeAttributeNode", 
+                "removeChild", "replaceChild", "setUserData", 
+                "setAttribute", "setAttributeNS", "setAttributeNode", 
+                "setAttributeNodeNS", "setIdAttribute", "setIdAttributeNS", 
+                "setIdAttributeNode" ],
+
+    modifiedRegExp: new RegExp("^(set|remove|insert|append|replace|normalize)"),
+
+    wrapMethod: function(methodName){
+        return function(){
+            // make another reference to the arguments array so that
+            // it's not clobered inside eval()
+            var args = arguments;
+            var argslist = "";
+
+            for(var i = 0; i < arguments.length-1; i++){
+                argslist += "args[" + i + "], ";
+            }
+            argslist += "args[" + i + "]";
+
+            var exe = 'this.dom.' + methodName + "(" + argslist + ")";
+            var ret = eval(exe);
+
+            if(this.modifiedRegExp.test(methodName)){
+                this._updateWrappedProperties();
+            }
+
+            return ret;
+        }
+    }
 };
 
 
@@ -158,18 +153,18 @@ function wrapForIe(obj){
  */
 Mixin.apply =  function(target, mixins) {
     if (target) {
-        target = wrapForIe(target);  // noop for well-behaved browsers
+        target = new DOMWrapper(target);  // noop for well-behaved browsers
 
         for(var a = 1; a < arguments.length; a++){
             mixins = arguments[a];
 
             if(!mixins)
                 continue;
-            
+
             if(!Strophe.Util.isArray(mixins)){
                 mixins = [mixins];
             }
-            
+
             for(var m = 0; m < mixins.length; m++){
                 var mixin = mixins[m];
                 for (var i in mixin) {
@@ -188,29 +183,29 @@ Mixin.apply =  function(target, mixins) {
     }
 
     return target;
-}
+};
 
 
 var Stanza = {
     /***
     Function getTo
-    
+
     Retrieve the "to" value of the XMPP packet
-    
+
     Returns: (String) - The "to" value of the XMPP packet 
-    
+
      */        
     getTo: function() {
         return this.getAttribute("to");
     },
-    
+
     /***
     Function getFrom
-    
+
     Retrieve the "from" value of the XMPP packet
-    
+
     Returns: (String) - The "from" value of the XMPP packet 
-    
+
      */        
     getFrom: function() {
         return this.getAttribute("from");
@@ -218,24 +213,24 @@ var Stanza = {
 
     /***
     Function getName
-    
+
     Retrieve the name the XMPP packet tag
-    
+
     Returns: (String) - The name of the tag of the XMPP packet 
-    
+
      */        
     getName: function(){
         return this.tagName;
     },
 
-    
+
     /***
     Function getType
-    
+
     Retrieve the "type" of the XMPP packet
-    
+
     Returns: (String) - The "type" of the XMPP packet 
-    
+
      */        
     getType: function() {
         return this.getAttribute("type");
@@ -243,22 +238,22 @@ var Stanza = {
 
     /***
     Function getId
-    
+
     Retrieve the id of the XMPP packet
-    
+
     Returns: (String) - The id of the XMPP packet 
-    
+
      */
     getId: function() {
         return this.getAttribute("id");
     },
 
-    
+
     getExtensionsByNS: function(namespaceURI) {
         namespaceURI = namespaceURI || "";
         return new Strophe.Parser(this).find(namespaceURI + "|x");
     },
-    
+
     getExtensions: function() {
         return new Strophe.Parser(this).find("x");
     },
@@ -266,7 +261,7 @@ var Stanza = {
 
     /***
      Function getError
-     
+
     Retrieves the error returned with the stanza.  The error is
     represented as an object with the following properties: 'code',
     'type', 'condition'.  Code is the code of the error, type is the
@@ -275,7 +270,7 @@ var Stanza = {
 
     There may also be a 'text' property, if it has been included in the
     error stanza.
-     
+
     Returns: (Object) - The object representing an error
     */
     getError: function() {
@@ -326,11 +321,11 @@ var Stanza = {
 var Message = Mixin.apply({
     /***
      Function getBody
-     
+
      Retrieves the body element of the IQ packet
-     
+
      Returns: (DOMNode) - The XML node of the query element
-         
+
      */
     getBody: function() {
         return new Strophe.Parser(this).find("body").get(0);
@@ -351,7 +346,7 @@ var Message = Mixin.apply({
         }
         return undefined;
     },
-    
+
     getBodyText: function(){
         var bodyElem = this.getElementsByTagName('body');
         if (bodyElem.length && bodyElem.length > 0){
@@ -365,11 +360,11 @@ var Message = Mixin.apply({
 var IQ = Mixin.apply({
     /***
      Function getQuery
-     
+
      Retrieves the query element of the IQ packet
-     
+
      Returns: (DOMNode) - The XML node of the query element
-         
+
      */
     getQuery: function(ns) {
         ns = ns || "";
@@ -379,11 +374,11 @@ var IQ = Mixin.apply({
 
     /***
      Function getQueryNS
-     
+
      Retrieves the namespace value of the query element
-     
+
      Returns: (String) - The value of the namespace attribute of the query element 
-         
+
      */
     getQueryNS: function() {
         return new Strophe.Parser(this).find("query").attr("xmlns").get(0) || "";
@@ -406,7 +401,7 @@ var Presence = Mixin.apply({
         });
         return statuses;
     },
-    
+
     getShow: function(){
         return new Strophe.Parser(this).find("show").text();
     },
@@ -429,7 +424,7 @@ var Presence = Mixin.apply({
 
 
 // add default stanza mixins to the Mixin namespace
-Mixin.apply(Mixin, {
+Mixin = Mixin.apply(Mixin, {
     Stanza: Stanza,
     Message: Message,
     IQ: IQ,
@@ -597,7 +592,7 @@ var parser_api = {
                 }
             }
         });
-        
+
         return new Parser(elements);
     },
 
@@ -679,7 +674,7 @@ var parser_api = {
         this.each(function(elem){
             ret += (Strophe.getText(elem) || "");
         });
-        
+
         return ret; 
     }
 }
