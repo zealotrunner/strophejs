@@ -394,6 +394,12 @@
             pres = Strophe.Mixin.apply(pres, Strophe.Mixin.Presence);
             equals(pres.getCapsNode(), null);
         });
+
+        test("Regular objects not wrapped", function(){
+            var x = {x: 'x'};
+            var x2 = Strophe.Mixin.apply(x, {y: 'y'});
+            same(x, {x: 'x', y: 'y'});
+        });
     });
   </script>
 </head>

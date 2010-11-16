@@ -14,7 +14,7 @@ plugin.0060.js - comprehensive PubSub support
 plugin.roster.js - roster and presence subscription management
 plugin.cm.js - Connection manager: used to actively detect disconnections and reconnect.  Also guarantees that stanzas sent while disconnected are not lost and resent when connection is re-established.  Currently, breaks Strophe when this plugin is loaded but not enabled.
 
-No modifications to the core Strophe library are made and it is periodically synced it with metajack's upstream.
+No modifications to the core Strophe library are made and it is periodically synced with metajack's upstream.
 
 See the corresponding tests (and plugin source) for sample usage.  Examples to come.
 

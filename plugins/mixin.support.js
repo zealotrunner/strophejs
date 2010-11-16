@@ -29,6 +29,10 @@ Strophe.Util.parseXML = function(xml){
     }
     return xmlDoc.firstChild;
 };
+Strophe.Util.isDOM = function(obj){
+    // TODO: make this check comprehensive
+    return !!(obj && obj.attributes && obj.tagName);
+};
 
 
 (function (callback) {
@@ -42,18 +46,16 @@ var needToWrap = undefined;
  * while keeping the same DOM Element interface
  */
 function DOMWrapper(obj){
-    if(needToWrap === false){
+    if(needToWrap === false || !Strophe.Util.isDOM(obj)){
         return obj;
     } else if(needToWrap === true){
         // continue...
     } else {
         // determine if we need to wrap (should only be done once)
         try {
-            if(obj.attributes){
-                obj.___test = "a test";
-                delete obj.___test;
-                needToWrap = false;
-            }
+            obj.___test = "a test";
+            delete obj.___test;
+            needToWrap = false;
             return obj;
         } catch(e){
             // need to wrap, continue
@@ -120,7 +122,7 @@ DOMWrapper.prototype = {
     wrapMethod: function(methodName){
         return function(){
             // make another reference to the arguments array so that
-            // it's not clobered inside eval()
+            // it's not clobbered inside eval()
             var args = arguments;
             var argslist = "";
 
@@ -424,7 +426,7 @@ var Presence = Mixin.apply({
 
 
 // add default stanza mixins to the Mixin namespace
-Mixin = Mixin.apply(Mixin, {
+Mixin.apply(Mixin, {
     Stanza: Stanza,
     Message: Message,
     IQ: IQ,
