@@ -46,7 +46,9 @@ var needToWrap = undefined;
  * while keeping the same DOM Element interface
  */
 function DOMWrapper(obj){
-    if(needToWrap === false || !Strophe.Util.isDOM(obj)){
+    if( needToWrap === false
+     || !Strophe.Util.isDOM(obj)
+     || obj.dom !== undefined){
         return obj;
     } else if(needToWrap === true){
         // continue...
@@ -131,8 +133,13 @@ DOMWrapper.prototype = {
             }
             argslist += "args[" + i + "]";
 
-            var exe = 'this.dom.' + methodName + "(" + argslist + ")";
-            var ret = eval(exe);
+            // HACK - workaround IE not allowing hasAttribute
+            if (methodName == 'hasAttribute') {
+                var ret = !!this.dom.getAttribute(args[0]);
+            } else {
+                var exe = 'this.dom.' + methodName + "(" + argslist + ")";
+                var ret = eval(exe);
+            }
 
             if(this.modifiedRegExp.test(methodName)){
                 this._updateWrappedProperties();
