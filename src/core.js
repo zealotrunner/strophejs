@@ -27,6 +27,7 @@
  *  This Function object extension method creates a bound method similar
  *  to those in Python.  This means that the 'this' object will point
  *  to the instance you want.  See
+ *  <a href='https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Function/bind'>MDC's bind() documentation</a> and 
  *  <a href='http://benjamin.smedbergs.us/blog/2007-01-03/bound-functions-and-function-imports-in-javascript/'>Bound Functions and Function Imports in JavaScript</a>
  *  for a complete explanation.
  *
@@ -35,52 +36,24 @@
  *
  *  Parameters:
  *    (Object) obj - The object that will become 'this' in the bound function.
+ *    (Object) argN - An option argument that will be prepended to the 
+ *      arguments given for the function call
  *
  *  Returns:
  *    The bound function.
  */
 if (!Function.prototype.bind) {
-    Function.prototype.bind = function (obj)
+    Function.prototype.bind = function (obj /*, arg1, arg2, ... */)
     {
         var func = this;
-        return function () { return func.apply(obj, arguments); };
-    };
-}
-
-/** PrivateFunction: Function.prototype.prependArg
- *  Prepend an argument to a function.
- *
- *  This Function object extension method returns a Function that will
- *  invoke the original function with an argument prepended.  This is useful
- *  when some object has a callback that needs to get that same object as
- *  an argument.  The following fragment illustrates a simple case of this
- *  > var obj = new Foo(this.someMethod);</code></blockquote>
- *
- *  Foo's constructor can now use func.prependArg(this) to ensure the
- *  passed in callback function gets the instance of Foo as an argument.
- *  Doing this without prependArg would mean not setting the callback
- *  from the constructor.
- *
- *  This is used inside Strophe for passing the Strophe.Request object to
- *  the onreadystatechange handler of XMLHttpRequests.
- *
- *  Parameters:
- *    arg - The argument to pass as the first parameter to the function.
- *
- *  Returns:
- *    A new Function which calls the original with the prepended argument.
- */
-if (!Function.prototype.prependArg) {
-    Function.prototype.prependArg = function (arg)
-    {
-        var func = this;
-
+        var _slice = Array.prototype.slice;
+        var _concat = Array.prototype.concat;
+        var _args = _slice.call(arguments, 1);
+        
         return function () {
-            var newargs = [arg];
-            for (var i = 0; i < arguments.length; i++) {
-                newargs.push(arguments[i]);
-            }
-            return func.apply(this, newargs);
+            return func.apply(obj ? obj : this,
+                              _concat.call(_args,
+                                           _slice.call(arguments, 0)));
         };
     };
 }
@@ -1028,7 +1001,8 @@ Strophe.Builder.prototype = {
      */
     cnode: function (elem)
     {
-        var newElem = Strophe.xmlGenerator().importNode(elem, true);
+        var xmlGen = Strophe.xmlGenerator();
+        var newElem = xmlGen.importNode ? xmlGen.importNode(elem, true) : Strophe.copyElement(elem);
         this.node.appendChild(newElem);
         this.node = newElem;
         return this;
@@ -1374,7 +1348,8 @@ Strophe.Request.prototype = {
             xhr = new ActiveXObject("Microsoft.XMLHTTP");
         }
 
-        xhr.onreadystatechange = this.func.prependArg(this);
+        // use Function.bind() to prepend ourselves as an argument
+        xhr.onreadystatechange = this.func.bind(null, this);
 
         return xhr;
     }
@@ -1627,8 +1602,8 @@ Strophe.Connection.prototype = {
 
         this._requests.push(
             new Strophe.Request(body.tree(),
-                                this._onRequestStateChange.bind(this)
-                                    .prependArg(this._connect_cb.bind(this)),
+                                this._onRequestStateChange.bind(
+                                    this, this._connect_cb.bind(this)),
                                 body.tree().getAttribute("rid")));
         this._throttledRequestHandler();
     },
@@ -2253,7 +2228,7 @@ Strophe.Connection.prototype = {
 
         if (this._requests.length > 1 &&
             Math.abs(this._requests[0].rid -
-                     this._requests[1].rid) < this.window - 1) {
+                     this._requests[1].rid) < this.window) {
             this._processRequest(1);
         }
     },
@@ -2518,8 +2493,8 @@ Strophe.Connection.prototype = {
         this.disconnecting = true;
 
         var req = new Strophe.Request(body.tree(),
-                                      this._onRequestStateChange.bind(this)
-                                          .prependArg(this._dataRecv.bind(this)),
+                                      this._onRequestStateChange.bind(
+                                          this, this._dataRecv.bind(this)),
                                       body.tree().getAttribute("rid"));
 
         this._requests.push(req);
@@ -2606,8 +2581,8 @@ Strophe.Connection.prototype = {
             var body = this._buildBody();
             this._requests.push(
                 new Strophe.Request(body.tree(),
-                                    this._onRequestStateChange.bind(this)
-                                      .prependArg(this._connect_cb.bind(this)),
+                                    this._onRequestStateChange.bind(
+                                        this, this._connect_cb.bind(this)),
                                     body.tree().getAttribute("rid")));
             this._throttledRequestHandler();
             return;
@@ -2892,7 +2867,7 @@ Strophe.Connection.prototype = {
     _sasl_auth1_cb: function (elem)
     {
         // save stream:features for future usage
-        this.features = elem
+        this.features = elem;
 
         var i, child;
 
@@ -3131,6 +3106,13 @@ Strophe.Connection.prototype = {
     {
         var i, thand, since, newList;
 
+        // add timed handlers scheduled for addition
+        // NOTE: we add before remove in the case a timed handler is
+        // added and then deleted before the next _onIdle() call.
+        while (this.addTimeds.length > 0) {
+            this.timedHandlers.push(this.addTimeds.pop());
+        }
+
         // remove timed handlers that have been scheduled for deletion
         while (this.removeTimeds.length > 0) {
             thand = this.removeTimeds.pop();
@@ -3138,11 +3120,6 @@ Strophe.Connection.prototype = {
             if (i >= 0) {
                 this.timedHandlers.splice(i, 1);
             }
-        }
-
-        // add timed handlers scheduled for addition
-        while (this.addTimeds.length > 0) {
-            this.timedHandlers.push(this.addTimeds.pop());
         }
 
         // call ready timed handlers
@@ -3194,8 +3171,8 @@ Strophe.Connection.prototype = {
             this._data = [];
             this._requests.push(
                 new Strophe.Request(body.tree(),
-                                    this._onRequestStateChange.bind(this)
-                                    .prependArg(this._dataRecv.bind(this)),
+                                    this._onRequestStateChange.bind(
+                                        this, this._dataRecv.bind(this)),
                                     body.tree().getAttribute("rid")));
             this._processRequest(this._requests.length - 1);
         }

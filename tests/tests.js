@@ -160,4 +160,69 @@ $(document).ready(function () {
         equals(output, "\"\\\"beep \\\\40\\\"\"",
                "string should be quoted and escaped");
     });
+
+    test("Function binding", function () {
+        var spy = sinon.spy();
+        var obj = {};
+        var arg1 = "foo";
+        var arg2 = "bar";
+        var arg3 = "baz";
+
+        var f = spy.bind(obj, arg1, arg2);
+        f(arg3);
+        equals(spy.called, true, "bound function should be called");
+        equals(spy.calledOn(obj), true,
+               "bound function should have correct context");
+        equals(spy.alwaysCalledWithExactly(arg1, arg2, arg3),
+               true,
+               "bound function should get all arguments");
+    });
+
+    module("XHR error handling");
+
+    // Note that these tests are pretty dependent on the actual code.
+
+    test("Aborted requests do nothing", function () {
+        Strophe.Connection.prototype._onIdle = function () {};
+        var conn = new Strophe.Connection("http://fake");
+
+        // simulate a finished but aborted request
+        var req = {id: 43,
+                   sends: 1,
+                   xhr: {
+                       readyState: 4
+                   },
+                   abort: true};
+
+        conn._requests = [req];
+
+        var spy = sinon.spy();
+
+        conn._onRequestStateChange(spy, req);
+
+        equals(req.abort, false, "abort flag should be toggled");
+        equals(conn._requests.length, 1, "_requests should be same length");
+        equals(spy.called, false, "callback should not be called");
+    });
+
+    test("Incomplete requests do nothing", function () {
+        Strophe.Connection.prototype._onIdle = function () {};
+        var conn = new Strophe.Connection("http://fake");
+
+        // simulate a finished but aborted request
+        var req = {id: 44,
+                   sends: 1,
+                   xhr: {
+                       readyState: 3
+                   }};
+
+        conn._requests = [req];
+
+        var spy = sinon.spy();
+
+        conn._onRequestStateChange(spy, req);
+
+        equals(conn._requests.length, 1, "_requests should be same length");
+        equals(spy.called, false, "callback should not be called");
+    });
 });
