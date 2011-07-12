@@ -101,7 +101,10 @@ Strophe.addConnectionPlugin('dataform', {
                     opts = {};
                 }
 
-                opts[option.getAttribute("label")] = Strophe.getText(option.getElementsByTagName("value")[0]);
+                var value = Strophe.getText(option.getElementsByTagName("value")[0]);
+                var label = option.getAttribute("label") || value;
+
+                opts[label] = value;
             } catch (e){
                 //problem parsing label/value, ignore
                 Strophe.log(e);
@@ -441,7 +444,7 @@ Strophe.addConnectionPlugin('dataform', {
                         }
 
                         for(var v = 0; v < values.length; v++){
-                            fieldNode.appendChild($build('value').t(values[v]).tree());
+                            fieldNode.appendChild($build('value').t(values[v] + '').tree());
                         }
                     }
                     
@@ -539,7 +542,10 @@ Strophe.addConnectionPlugin('dataform', {
                             opts = {};
                         }
 
-                        opts[option.getAttribute("label")] = Strophe.getText(option.getElementsByTagName("value")[0]);
+                        var value = Strophe.getText(option.getElementsByTagName("value")[0]);
+                        var label = option.getAttribute("label") || value;
+         
+                        opts[label] = value;
                     } catch (e){
                         //problem parsing label/value, ignore
                         Strophe.log(e);
@@ -593,7 +599,7 @@ Strophe.addConnectionPlugin('dataform', {
                     vals = vals[0];
                 }
 
-                if( !(vals.length > 0) ){
+                if( !(vals === false || vals === true || vals.length > 0) ){
                     vals = "";
                 }
                 
@@ -627,6 +633,32 @@ Strophe.addConnectionPlugin('dataform', {
                 });
 
                 return fields;
+            },
+
+            /**
+             * Function: getValues
+             * 
+             * Retreives name:value pairs from a normal form for all non-hidden
+             * fields.  No instructions/title meta data is returned.
+             *
+             * The returned values are read-only; making changes to them 
+             * does not affect the dataform.
+             * 
+             * Returns:
+             *    A javascript object with name/value pairs
+             * 
+             */
+            getValues: function(){
+                var contents = this.unserialize();
+
+                var values = {};
+                for(var i = 0; i < contents.length; i++){
+                    if(contents[i].type != 'hidden'){
+                        values[contents[i]['var']] = contents[i].content.value;
+                    }
+                }
+
+                return values;
             },
 
             

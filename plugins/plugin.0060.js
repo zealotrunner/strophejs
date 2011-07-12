@@ -73,23 +73,26 @@ var pubsub = {
         
         var iqid = this._conn.getUniqueId("pubsubcreatenode");
         
-        var iq = $iq({to:service, type:'set', id:iqid});
+        var iq = $iq({to: service, type: 'set', id: iqid});
         
-        var form = this._conn.dataform.createForm('submit');
-        form.setFormType(Strophe.NS.PUBSUB_NODE_CONFIG);
+        iq.c('pubsub', {xmlns: Strophe.NS.PUBSUB});
+
+        if(node){
+            iq.c('create', {node: node});
+        }
+
         if (options){
+            var form = this._conn.dataform.createForm('submit');
+            form.setFormType(Strophe.NS.PUBSUB_NODE_CONFIG);
+
             for (var i in options)
             {
                 var val = options[i];
                 form.setFields([{'var': i, content: {value: val}}]);
             }
+
+            iq.up().c('configure').cnode(form);
         }
-
-        iq.c('pubsub',
-             {xmlns:Strophe.NS.PUBSUB}).c('create',
-                                          {node:node})
-            .up().c('configure').cnode(form);
-
 
         if( call_back ){
             var pubsub = this;
@@ -279,6 +282,66 @@ var pubsub = {
         
     },
 
+    /***Function: getDefaultSubscriptionOptions
+     Get node's default configuration options.
+
+       Parameters:
+       (String) service - The name of the pubsub service.
+       (String) node -  (Optional) The name of the pubsub node.
+       (Function) call_back - (optional) Returns the server response.
+        Call .getForm() to get the data form with options.
+
+       Returns:
+       Iq id used to send request.
+     */
+    getDefaultSubscriptionOptions: function(service, node, call_back){
+        var iqid = this._conn.getUniqueId("get_default_options");
+        
+        var iq = $iq({to:service, type:'get', id:iqid});
+
+        iq.c('pubsub',
+             {xmlns:Strophe.NS.PUBSUB})
+            .c('default');
+
+        if(node){
+            iq.attrs({node:node});
+        }
+
+        if( call_back ){
+            var pubsub = this;
+            var callback_wrapper = function(response){
+                response = Strophe.Mixin.apply(response, pubsub.mixins.PubSub);
+
+                // if the dataform plugin is loaded, use it
+                var dataform = pubsub._conn.dataform;
+                if(dataform){
+                    response = Strophe.Mixin.apply(response, {
+                        getForm: function(){
+                            var form = $sp(this).find("pubsub > default > x").get(0);
+                            if(form){
+                                return Strophe.Mixin.apply(form,
+                                                           dataform.mixins.DataForm);
+                            }
+                        }
+                    });
+                }
+
+                call_back(response);
+            }
+            
+            this._conn.addHandler(callback_wrapper,
+                                  null,
+                                  'iq',
+                                  null,
+                                  iqid,
+                                  null);
+        }
+
+        this._conn.send(iq.tree());
+
+        return iqid;
+    },
+
 
     /***Function: getSubscriptionOptions
      Get current node configuration options.
@@ -320,7 +383,7 @@ var pubsub = {
                 if(dataform){
                     response = Strophe.Mixin.apply(response, {
                         getForm: function(){
-                            var form = $sp(this).find("options > x").get(0);
+                            var form = $sp(this).find("pubsub > options > x").get(0);
                             if(form){
                                 return Strophe.Mixin.apply(form,
                                                            dataform.mixins.DataForm);
@@ -387,7 +450,7 @@ var pubsub = {
 
             var payload = payloads[i];
             if( payload ){
-                item.cnode(payload.tree());
+                item.cnode( ( payload.tree && payload.tree() ) || payload );
             }
 
             pub.cnode(item.tree()).up();
@@ -642,7 +705,9 @@ var pubsub = {
                     Strophe.forEachChild(event, null, function(event_elem){
                         // check 'items' and 'purge'
                         if( Strophe.isTagEqual(event_elem, "items") ||
-                            Strophe.isTagEqual(event_elem, "purge") ){
+                            Strophe.isTagEqual(event_elem, "purge") ||
+                            Strophe.isTagEqual(event_elem, "delete") ||
+                            Strophe.isTagEqual(event_elem, "retract") ){
 
                             if( !node || event_elem.getAttribute("node") == node ){
                                 handler_found = true;
@@ -758,7 +823,7 @@ var pubsub = {
                     if(dataform){
                         response = Strophe.Mixin.apply(response, {
                             getForm: function(){
-                                var form = $sp(this).find("options > x").get(0);
+                                var form = $sp(this).find("pubsub > configure > x").get(0);
                                 if(form){
                                     return Strophe.Mixin.apply(form,
                                                                dataform.mixins.DataForm);
@@ -822,7 +887,50 @@ var pubsub = {
 
             return iqid;
         },
+
+        /***
+         Function setAffiliations
+         Sets affiliations for the node.
+         
+           Parameters:
+           (String) service - The name of the pubsub service.
+           (String) node    - The name of the pubsub node.
+           (Object) affiliations - Affiliations dictionary: {jid: state}
+         
+           (Function) call_back - (optional) Returns the server response (IQ mixin).
+         */
+        setAffiliations: function(service, node, affiliations, call_back){
+            var iqid = this._conn.getUniqueId("as");
             
+            var iq = $iq({to:service, type:'set', id:iqid});
+
+            iq.c('pubsub', {xmlns:Strophe.NS.PUBSUB_OWNER})
+                .c('affiliations', {node:node});
+
+            if(affiliations){
+                for(var affiliation in affiliations){
+                    if(affiliations.hasOwnProperty(affiliation)){
+                        iq.c('affiliation', {
+                            jid: affiliation,
+                            affiliation: affiliations[affiliation]
+                        }).up();
+                    }
+                }
+            }
+        
+            if( call_back ){
+                var callback_wrapper = function(response){
+                    response = Strophe.Mixin.apply(response, Strophe.Mixin.IQ);
+                    call_back(response);
+                }
+                
+                this._conn.addHandler(callback_wrapper, null, 'iq', null, iqid, null);
+            }
+
+            this._conn.send(iq.tree());
+
+            return iqid;
+        },
 
         /***
         Function purge
@@ -1020,7 +1128,7 @@ var pubsub = {
              * Works for both 'items' and 'purge' notifications.
              */
             getNode: function(){
-                return $sp(this).find("event > items, purge").attr("node").get(0) || "";
+                return $sp(this).find("event > items, purge, delete, retract").attr("node").get(0) || "";
             },
     
             /**
@@ -1064,7 +1172,19 @@ var pubsub = {
              * Each item in the retunred array has an attribute: 'id'
              */
             getRetractions : function(){
-                return this.getItems("event > items > retract");
+                var retractions = this.getItems("event > items > retract");
+
+                retractions.getIds = function () {
+                    var ids = [];
+
+                    $(retractions).each(function () {
+                        ids.push( $(this).attr('id') );
+                    });
+
+                    return ids;
+                }
+
+                return retractions;
             },
 
             /**
@@ -1072,6 +1192,13 @@ var pubsub = {
              */
             getPurge : function(){
                 return this.getItems("event > purge");
+            },
+
+            /**
+             * Returns the delete element 
+             */
+            getDelete : function(){
+                return this.getItems("event > delete");
             },
             
             /**

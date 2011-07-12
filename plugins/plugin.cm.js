@@ -238,10 +238,13 @@ Strophe.addConnectionPlugin('connectionmanager', {
         if(this.conn_state == Strophe.Status.CONNECTED){
             // clear the queue
             var els = req.xmlData.childNodes;
-            if(els){
+            if(els && els.length > 0){
                 for(var i = 0; i < this.element_queue.length; i++){
                     for(var j = 0; j < els.length; j++){
-                        if(this.element_queue[i] == els[j]){
+                        //if(this.element_queue[i] == els[j]){
+                        if(this.element_queue[i] && els[j] && (
+                            this.element_queue[i].getAttribute("id") 
+                                == els[j].getAttribute("id"))){  // use request id comparisons instead
                             //DF.console.info("removing from sent queue:", this.element_queue[i]);
                             this.element_queue.splice(i--, 1);
 

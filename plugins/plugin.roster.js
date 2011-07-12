@@ -90,6 +90,11 @@ Strophe.addConnectionPlugin('roster', {
         this._conn.send(pres.tree());
     },
 
+    remove: function (jid) {
+        var iq = $iq({ type: 'set' })
+            .c('query', { xmlns:Strophe.NS.ROSTER })
+            .c('item', { jid: jid, subscription: 'remove' });
+    },
 
     /**
      * Register presence handler callbacks by their type.
@@ -109,23 +114,38 @@ Strophe.addConnectionPlugin('roster', {
         var ret = {};
         var roster = this;
 
+        //  presence subscription messages
         var events = ["subscribe", "subscribed", "unsubscribe", "unsubscribed"];
         for(var event in events){
-            type = events[event];
+            var type = events[event];
 
             if(callbacks[type]){
+                var callback = callbacks[type];
                 var callback_wrapper = function(pres){
                     pres = Strophe.Mixin.apply(pres, Strophe.Mixin.Presence);
-                    callbacks[type](pres);
+                    callback(pres);
                     
                     return true; // keep handler registered
                 };
             
-                ret[type] =  this._conn.addHandler(callback_wrapper,
-                                                   null, 'presence', type,
-                                                   null, null);
+                ret[type] =  this._conn.addHandler( callback_wrapper,
+                                                    null, 'presence', type,
+                                                    null, null );
             }
         }
+
+        //  iq roster update messages
+        var type = 'roster';
+        if (callbacks[type]) {
+            var callback_wrapper = function (response) {
+                response = Strophe.Mixin.apply(response, roster.mixins.Roster);
+                callbacks[type](response);
+            }
+
+            ret[type] = this._conn.addHandler( callback_wrapper,
+                                               'jabber:iq:roster' );
+        }
+
         return ret;
     },
 
@@ -152,6 +172,7 @@ Strophe.addConnectionPlugin('roster', {
                         name: item.getAttribute('name'),
                         jid: item.getAttribute('jid'),
                         subscription: item.getAttribute('subscription'),
+                        ask: item.getAttribute('ask'),
                         groups: groups
                     });
                 });
