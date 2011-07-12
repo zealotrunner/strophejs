@@ -450,7 +450,7 @@ var pubsub = {
 
             var payload = payloads[i];
             if( payload ){
-                item.cnode(payload.tree());
+                item.cnode( ( payload.tree && payload.tree() ) || payload );
             }
 
             pub.cnode(item.tree()).up();
@@ -823,7 +823,7 @@ var pubsub = {
                     if(dataform){
                         response = Strophe.Mixin.apply(response, {
                             getForm: function(){
-                                var form = $sp(this).find("pubsub > options > x").get(0);
+                                var form = $sp(this).find("pubsub > configure > x").get(0);
                                 if(form){
                                     return Strophe.Mixin.apply(form,
                                                                dataform.mixins.DataForm);
@@ -1172,7 +1172,19 @@ var pubsub = {
              * Each item in the retunred array has an attribute: 'id'
              */
             getRetractions : function(){
-                return this.getItems("event > items > retract");
+                var retractions = this.getItems("event > items > retract");
+
+                retractions.getIds = function () {
+                    var ids = [];
+
+                    $(retractions).each(function () {
+                        ids.push( $(this).attr('id') );
+                    });
+
+                    return ids;
+                }
+
+                return retractions;
             },
 
             /**

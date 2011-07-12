@@ -125,17 +125,19 @@ DOMWrapper.prototype = {
         return function(){
             // make another reference to the arguments array so that
             // it's not clobbered inside eval()
-            var args = arguments;
+            this['args'] = arguments;
             var argslist = "";
 
-            for(var i = 0; i < arguments.length-1; i++){
-                argslist += "args[" + i + "], ";
+            if (arguments.length > 0) {
+                for(var i = 0; i < arguments.length-1; i++){
+                    argslist += "this['args'][" + i + "], ";
+                }
+                argslist += "this['args'][" + i + "]";
             }
-            argslist += "args[" + i + "]";
 
             // HACK - workaround IE not allowing hasAttribute
             if (methodName == 'hasAttribute') {
-                var ret = !!this.dom.getAttribute(args[0]);
+                var ret = !!this.dom.getAttribute(this['args'][0]);
             } else {
                 var exe = 'this.dom.' + methodName + "(" + argslist + ")";
                 var ret = eval(exe);

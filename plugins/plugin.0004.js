@@ -101,7 +101,10 @@ Strophe.addConnectionPlugin('dataform', {
                     opts = {};
                 }
 
-                opts[option.getAttribute("label")] = Strophe.getText(option.getElementsByTagName("value")[0]);
+                var value = Strophe.getText(option.getElementsByTagName("value")[0]);
+                var label = option.getAttribute("label") || value;
+
+                opts[label] = value;
             } catch (e){
                 //problem parsing label/value, ignore
                 Strophe.log(e);
@@ -441,7 +444,7 @@ Strophe.addConnectionPlugin('dataform', {
                         }
 
                         for(var v = 0; v < values.length; v++){
-                            fieldNode.appendChild($build('value').t(values[v]).tree());
+                            fieldNode.appendChild($build('value').t(values[v] + '').tree());
                         }
                     }
                     
@@ -539,7 +542,10 @@ Strophe.addConnectionPlugin('dataform', {
                             opts = {};
                         }
 
-                        opts[option.getAttribute("label")] = Strophe.getText(option.getElementsByTagName("value")[0]);
+                        var value = Strophe.getText(option.getElementsByTagName("value")[0]);
+                        var label = option.getAttribute("label") || value;
+         
+                        opts[label] = value;
                     } catch (e){
                         //problem parsing label/value, ignore
                         Strophe.log(e);
